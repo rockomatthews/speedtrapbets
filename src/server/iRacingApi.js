@@ -19,13 +19,40 @@ class IracingApi {
             throw new Error('iRacing key or credentials not found in environment variables');
         }
 
-        const [ivHex, encrypted] = encryptedCreds.split(':');
+        console.log('Key length:', key.length);
+        console.log('Encrypted Creds length:', encryptedCreds.length);
+
+        if (encryptedCreds.length < 32) {
+            throw new Error('Encrypted credentials are too short');
+        }
+
+        const ivHex = encryptedCreds.slice(0, 32);
+        const encrypted = encryptedCreds.slice(32);
+
+        console.log('IV Hex length:', ivHex.length);
+        console.log('Encrypted length:', encrypted.length);
+
         const iv = Buffer.from(ivHex, 'hex');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key, 'base64'), iv);
-        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        const [username, password] = decrypted.split(':');
-        await this.login(username, password);
+
+        if (iv.length !== 16) {
+            throw new Error(`Invalid IV length: ${iv.length}`);
+        }
+
+        try {
+            const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key, 'base64'), iv);
+            let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+            decrypted += decipher.final('utf8');
+            const [username, password] = decrypted.split(':');
+            
+            console.log('Decryption successful');
+            console.log('Username length:', username.length);
+            console.log('Password length:', password.length);
+
+            await this.login(username, password);
+        } catch (error) {
+            console.error('Decryption error:', error);
+            throw error;
+        }
     }
 
     async login(username, password) {
