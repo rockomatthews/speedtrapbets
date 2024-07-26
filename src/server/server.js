@@ -12,12 +12,17 @@ const iracingApi = new IracingApi(process.env.IRACING_USERNAME, process.env.IRAC
 app.get('/api/search-driver', async (req, res) => {
   try {
     const { searchTerm } = req.query;
-    console.log('Searching for driver:', searchTerm);
+    console.log('Received search request for:', searchTerm);
+    
+    console.log('Attempting to search for driver...');
     const data = await iracingApi.searchDriver(searchTerm);
-    console.log('Search result:', data);
+    
+    console.log('Search completed. Result:', data);
+    
     res.json(data);
   } catch (error) {
-    console.error('Error searching for driver:', error.message, error.response ? error.response.data : '');
+    console.error('Error in search-driver endpoint:', error);
+    console.error('Error details:', error.response ? error.response.data : error.message);
     res.status(500).json({ error: 'An error occurred while searching for the driver', details: error.message });
   }
 });

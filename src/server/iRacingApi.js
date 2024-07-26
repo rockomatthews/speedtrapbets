@@ -37,7 +37,17 @@ class IracingApi {
   }
 
   async searchDriver(searchTerm) {
-    return this.getResource('lookup/drivers', { search_term: searchTerm });
+    console.log('Starting searchDriver function with term:', searchTerm);
+    try {
+      console.log('Calling getResource...');
+      const result = await this.getResource('lookup/drivers', { search_term: searchTerm });
+      console.log('getResource call successful. Result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error in searchDriver:', error);
+      console.error('Error details:', error.response ? error.response.data : error.message);
+      throw error;
+    }
   }
 }
 
