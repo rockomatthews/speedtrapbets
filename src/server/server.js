@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const IracingApi = require('./iracingApi');  // Updated import path
+const IracingApi = require('./iRacingApi');  // Updated import path
 require('dotenv').config();
 
 const app = express();
