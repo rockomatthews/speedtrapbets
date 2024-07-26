@@ -1,71 +1,69 @@
 const axios = require('axios');
+const fs = require('fs').promises;
+const crypto = require('crypto');
 
 class IracingApi {
-  constructor(username, password) {
-    this.username = username;
-    this.password = password;
-    this.baseUrl = 'https://members-ng.iracing.com/';
+  constructor() {
+    this.baseUrl = 'https://members-ng.iracing.com/data/';
     this.session = axios.create({
       baseURL: this.baseUrl,
       withCredentials: true,
     });
-    this.authToken = null;
+    this.authCookie = null;
   }
 
-  async login() {
+  async authWithCredsFromFile(keyPath, credsPath) {
+    const key = await fs.readFile(keyPath, 'utf8');
+    const encryptedCreds = await fs.readFile(credsPath, 'utf8');
+    const [ivHex, encrypted] = encryptedCreds.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key, 'base64'), iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    const [username, password] = decrypted.split(':');
+    await this.login(username, password);
+  }
+
+  async login(username, password) {
     try {
-      const response = await this.session.post('auth', {
-        email: this.username,
-        password: this.password,
+      const response = await this.session.post('https://members-ng.iracing.com/auth', {
+        email: username,
+        password: password,
       });
-      console.log('Login response headers:', response.headers);
-      this.authToken = response.headers['set-cookie'];
-      console.log('Auth token set:', this.authToken);
-      return response.data;
+      
+      // Store the authentication cookie
+      const cookies = response.headers['set-cookie'];
+      if (cookies) {
+        this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
+        if (!this.authCookie) {
+          throw new Error('Authentication cookie not found in response');
+        }
+      } else {
+        throw new Error('No cookies received in authentication response');
+      }
+
+      console.log('Login successful');
     } catch (error) {
       console.error('Login failed:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
 
-  async getResource(endpoint, params = {}) {
+  async get(uri, params = {}) {
     try {
-      if (!this.authToken) {
-        await this.login();
+      if (!this.authCookie) {
+        throw new Error('Not authenticated. Please login first.');
       }
-      const response = await this.session.get(`data/${endpoint}`, {
+
+      const response = await this.session.get(uri, {
         params,
         headers: {
-          Cookie: this.authToken
+          Cookie: this.authCookie
         }
       });
       return response.data;
     } catch (error) {
-      if (error.response && error.response.status === 401) {
-        // If unauthorized, try to login again
-        await this.login();
-        // Retry the request
-        const response = await this.session.get(`data/${endpoint}`, {
-          params,
-          headers: {
-            Cookie: this.authToken
-          }
-        });
-        return response.data;
-      }
-      console.error('Error fetching resource:', error.response ? error.response.data : error.message);
-      throw error;
-    }
-  }
-
-  async searchDriver(searchTerm) {
-    console.log('Starting searchDriver function with term:', searchTerm);
-    try {
-      const result = await this.getResource('lookup/drivers', { search_term: searchTerm });
-      console.log('Search result:', result);
-      return result;
-    } catch (error) {
-      console.error('Error in searchDriver:', error);
+      console.error(`Error fetching ${uri}:`, error.response ? error.response.data : error.message);
       throw error;
     }
   }
