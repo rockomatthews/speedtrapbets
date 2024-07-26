@@ -57,9 +57,11 @@ class IracingApi {
 
     async login(username, password) {
         try {
-            const response = await this.session.post('https://members-ng.iracing.com/auth', {
+            const response = await axios.post('https://members-ng.iracing.com/auth', {
                 email: username,
                 password: password,
+            }, {
+                withCredentials: true
             });
             
             const cookies = response.headers['set-cookie'];
@@ -68,6 +70,9 @@ class IracingApi {
                 if (!this.authCookie) {
                     throw new Error('Authentication cookie not found in response');
                 }
+                // Set the cookie for future requests
+                this.session.defaults.headers.Cookie = this.authCookie;
+                console.log('Auth cookie set:', this.authCookie);
             } else {
                 throw new Error('No cookies received in authentication response');
             }
@@ -85,6 +90,7 @@ class IracingApi {
                 throw new Error('Not authenticated. Please login first.');
             }
 
+            console.log('Sending request with auth cookie:', this.authCookie);
             const response = await this.session.get(uri, {
                 params: params,
                 headers: {

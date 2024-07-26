@@ -21,6 +21,8 @@ const iracingApi = new IracingApi();
 app.get('/api/search-driver', async (request, response) => {
     try {
         const searchTerm = request.query.searchTerm;
+        console.log('Searching for driver:', searchTerm);
+        console.log('Current auth cookie:', iracingApi.authCookie);
         const data = await iracingApi.get('/lookup/drivers', { search_term: searchTerm });
         response.json(data);
     } catch (error) {
