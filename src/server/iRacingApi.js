@@ -18,8 +18,9 @@ class IracingApi {
         email: this.username,
         password: this.password,
       });
-      console.log('Login successful');
-      this.authToken = response.headers['set-cookie']; // Store the auth token
+      console.log('Login response headers:', response.headers);
+      this.authToken = response.headers['set-cookie'];
+      console.log('Auth token set:', this.authToken);
       return response.data;
     } catch (error) {
       console.error('Login failed:', error.response ? error.response.data : error.message);
@@ -40,6 +41,18 @@ class IracingApi {
       });
       return response.data;
     } catch (error) {
+      if (error.response && error.response.status === 401) {
+        // If unauthorized, try to login again
+        await this.login();
+        // Retry the request
+        const response = await this.session.get(`data/${endpoint}`, {
+          params,
+          headers: {
+            Cookie: this.authToken
+          }
+        });
+        return response.data;
+      }
       console.error('Error fetching resource:', error.response ? error.response.data : error.message);
       throw error;
     }
@@ -48,13 +61,11 @@ class IracingApi {
   async searchDriver(searchTerm) {
     console.log('Starting searchDriver function with term:', searchTerm);
     try {
-      console.log('Calling getResource...');
       const result = await this.getResource('lookup/drivers', { search_term: searchTerm });
-      console.log('getResource call successful. Result:', result);
+      console.log('Search result:', result);
       return result;
     } catch (error) {
       console.error('Error in searchDriver:', error);
-      console.error('Error details:', error.response ? error.response.data : error.message);
       throw error;
     }
   }

@@ -21,7 +21,6 @@ app.get('/api/search-driver', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error in search-driver endpoint:', error);
-    console.error('Error details:', error.response ? error.response.data : error.message);
     res.status(500).json({ error: 'An error occurred while searching for the driver', details: error.message });
   }
 });
