@@ -9,6 +9,7 @@ class IracingApi {
       baseURL: this.baseUrl,
       withCredentials: true,
     });
+    this.authToken = null;
   }
 
   async login() {
@@ -18,6 +19,7 @@ class IracingApi {
         password: this.password,
       });
       console.log('Login successful');
+      this.authToken = response.headers['set-cookie']; // Store the auth token
       return response.data;
     } catch (error) {
       console.error('Login failed:', error.response ? error.response.data : error.message);
@@ -27,8 +29,15 @@ class IracingApi {
 
   async getResource(endpoint, params = {}) {
     try {
-      await this.login();
-      const response = await this.session.get(`data/${endpoint}`, { params });
+      if (!this.authToken) {
+        await this.login();
+      }
+      const response = await this.session.get(`data/${endpoint}`, {
+        params,
+        headers: {
+          Cookie: this.authToken
+        }
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching resource:', error.response ? error.response.data : error.message);

@@ -8,7 +8,6 @@ app.use(cors());
 
 const iracingApi = new IracingApi(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
 
-// Existing search driver route
 app.get('/api/search-driver', async (req, res) => {
   try {
     const { searchTerm } = req.query;
@@ -27,7 +26,6 @@ app.get('/api/search-driver', async (req, res) => {
   }
 });
 
-// New test authentication route
 app.get('/api/test-auth', async (req, res) => {
   try {
     await iracingApi.login();
