@@ -8,7 +8,7 @@ const Search = () => {
   const handleSearch = async () => {
     try {
       // Replace 'your-render-app' with your actual Render.com app name
-      const response = await fetch(`https://your-render-app.onrender.com/api/search-driver?searchTerm=${encodeURIComponent(searchTerm)}`);
+      const response = await fetch(`https://speedtrapbets.onrender.com/api/search-driver?searchTerm=${encodeURIComponent(searchTerm)}`);
       
       if (!response.ok) {
         throw new Error('Network response was not ok');

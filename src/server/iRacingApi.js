@@ -4,7 +4,7 @@ class IracingApi {
   constructor(username, password) {
     this.username = username;
     this.password = password;
-    this.baseUrl = 'https://members-ng.iracing.com/data/';
+    this.baseUrl = 'https://members-ng.iracing.com/';
     this.session = axios.create({
       baseURL: this.baseUrl,
       withCredentials: true,
@@ -12,20 +12,26 @@ class IracingApi {
   }
 
   async login() {
-    const response = await this.session.post('https://members-ng.iracing.com/auth', {
-      email: this.username,
-      password: this.password,
-    });
-    return response.data;
+    try {
+      const response = await this.session.post('auth', {
+        email: this.username,
+        password: this.password,
+      });
+      console.log('Login successful');
+      return response.data;
+    } catch (error) {
+      console.error('Login failed:', error.response ? error.response.data : error.message);
+      throw error;
+    }
   }
 
   async getResource(endpoint, params = {}) {
     try {
       await this.login();
-      const response = await this.session.get(endpoint, { params });
+      const response = await this.session.get(`data/${endpoint}`, { params });
       return response.data;
     } catch (error) {
-      console.error('Error fetching resource:', error);
+      console.error('Error fetching resource:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -33,8 +39,6 @@ class IracingApi {
   async searchDriver(searchTerm) {
     return this.getResource('lookup/drivers', { search_term: searchTerm });
   }
-
-  // Add more methods here as needed, similar to the Python wrapper
 }
 
 module.exports = IracingApi;
