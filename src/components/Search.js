@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TextField, Button, Box } from '@mui/material';
+import { TextField, Button, Box, Typography } from '@mui/material';
 
 const Search = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -7,7 +7,6 @@ const Search = () => {
 
   const handleSearch = async () => {
     try {
-      // Replace 'your-render-app' with your actual Render.com app name
       const response = await fetch(`https://speedtrapbets.onrender.com/api/search-driver?searchTerm=${encodeURIComponent(searchTerm)}`);
       
       if (!response.ok) {
@@ -16,15 +15,12 @@ const Search = () => {
 
       const data = await response.json();
       
-      // Assuming the API returns an array of drivers
-      const isDriverFound = data.length > 0;
-      
-      setSearchResult(isDriverFound);
-      console.log(isDriverFound);
+      console.log('API response:', data); // Log the full response for debugging
+
+      setSearchResult(data);
     } catch (error) {
       console.error('Error searching for driver:', error);
-      setSearchResult(false);
-      console.log(false);
+      setSearchResult({ found: false, error: error.message });
     }
   };
 
@@ -41,10 +37,19 @@ const Search = () => {
           Submit
         </Button>
       </Box>
-      {searchResult !== null && (
+      {searchResult && (
         <Box sx={{ marginTop: 2 }}>
-          {searchResult ? 'Driver found' : 'Driver not found'}
+          {searchResult.found ? (
+            <Typography>
+              Driver found: {searchResult.driver.display_name} (ID: {searchResult.driver.cust_id})
+            </Typography>
+          ) : (
+            <Typography>Driver not found</Typography>
+          )}
         </Box>
+      )}
+      {searchResult && searchResult.error && (
+        <Typography color="error">Error: {searchResult.error}</Typography>
       )}
     </Box>
   );
