@@ -57,6 +57,7 @@ class IracingApi {
                     Cookie: this.authCookie
                 }
             });
+            console.log('API Response:', response.data);
             return response.data;
         } catch (error) {
             console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
@@ -67,7 +68,17 @@ class IracingApi {
     async searchDrivers(searchTerm, leagueId = null) {
         const params = { search_term: searchTerm };
         if (leagueId) params.league_id = leagueId;
-        return this.getData('lookup/drivers', params);
+        const data = await this.getData('lookup/drivers', params);
+        
+        // Check if the response contains a 'link' property
+        if (data && data.link) {
+            // Fetch the actual data from the provided link
+            const response = await axios.get(data.link);
+            console.log('Driver search results:', response.data);
+            return response.data;
+        }
+        
+        return data;
     }
 }
 

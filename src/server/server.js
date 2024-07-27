@@ -23,7 +23,14 @@ app.get('/api/search-driver', async (request, response) => {
         const searchTerm = request.query.searchTerm;
         console.log('Searching for driver:', searchTerm);
         const data = await iracingApi.searchDrivers(searchTerm);
-        response.json(data);
+        
+        if (Array.isArray(data) && data.length > 0) {
+            console.log('Driver found:', data[0]);
+            response.json({ found: true, driver: data[0] });
+        } else {
+            console.log('Driver not found');
+            response.json({ found: false });
+        }
     } catch (error) {
         console.error('Error searching for driver:', error);
         response.status(500).json({
