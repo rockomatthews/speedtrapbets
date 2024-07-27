@@ -17,6 +17,20 @@ class IracingApi {
                 email: username,
                 password: encodedPassword,
             });
+            
+            // Store the authentication cookie
+            const cookies = response.headers['set-cookie'];
+            if (cookies) {
+                this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
+                if (!this.authCookie) {
+                    throw new Error('Authentication cookie not found in response');
+                }
+                // Set the cookie for future requests
+                this.session.defaults.headers.Cookie = this.authCookie;
+            } else {
+                throw new Error('No cookies received in authentication response');
+            }
+
             console.log('Login successful');
             return response.data;
         } catch (error) {
@@ -33,7 +47,16 @@ class IracingApi {
 
     async getData(endpoint, params = {}) {
         try {
-            const response = await this.session.get(`data/${endpoint}`, { params });
+            if (!this.authCookie) {
+                throw new Error('Not authenticated. Please login first.');
+            }
+            console.log('Sending request with auth cookie:', this.authCookie);
+            const response = await this.session.get(`data/${endpoint}`, { 
+                params,
+                headers: {
+                    Cookie: this.authCookie
+                }
+            });
             return response.data;
         } catch (error) {
             console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
@@ -41,14 +64,11 @@ class IracingApi {
         }
     }
 
-    // Example method for the lookup/drivers endpoint
     async searchDrivers(searchTerm, leagueId = null) {
         const params = { search_term: searchTerm };
         if (leagueId) params.league_id = leagueId;
         return this.getData('lookup/drivers', params);
     }
-
-    // Add more methods for other endpoints as needed
 }
 
 module.exports = IracingApi;
