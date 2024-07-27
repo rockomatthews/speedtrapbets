@@ -11,7 +11,7 @@ const iracingApi = new IracingApi();
 // Authenticate at startup
 (async function authenticateIRacing() {
     try {
-        await iracingApi.authWithEnvironmentVars();
+        await iracingApi.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
         console.log('Authentication successful');
     } catch (error) {
         console.error('Authentication failed:', error);
@@ -22,8 +22,7 @@ app.get('/api/search-driver', async (request, response) => {
     try {
         const searchTerm = request.query.searchTerm;
         console.log('Searching for driver:', searchTerm);
-        console.log('Current auth cookie:', iracingApi.authCookie);
-        const data = await iracingApi.get('lookup/drivers', { search_term: searchTerm });
+        const data = await iracingApi.searchDrivers(searchTerm);
         response.json(data);
     } catch (error) {
         console.error('Error searching for driver:', error);
