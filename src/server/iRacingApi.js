@@ -3,7 +3,7 @@ const crypto = require('crypto');
 
 class IracingApi {
     constructor() {
-        this.baseUrl = 'https://members-ng.iracing.com/data/';
+        this.baseUrl = 'https://members-ng.iracing.com/';
         this.session = axios.create({
             baseURL: this.baseUrl,
             withCredentials: true,
@@ -56,53 +56,53 @@ class IracingApi {
     }
 
     async login(username, password) {
-        try {
-            const response = await axios.post('https://members-ng.iracing.com/auth', {
-                email: username,
-                password: password,
-            }, {
-                withCredentials: true
-            });
-            
-            const cookies = response.headers['set-cookie'];
-            if (cookies) {
-                this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
-                if (!this.authCookie) {
-                    throw new Error('Authentication cookie not found in response');
-                }
-                // Set the cookie for future requests
-                this.session.defaults.headers.Cookie = this.authCookie;
-                console.log('Auth cookie set:', this.authCookie);
-            } else {
-                throw new Error('No cookies received in authentication response');
-            }
+      try {
+          const response = await axios.post(this.baseUrl + 'auth', {
+              email: username,
+              password: password,
+          }, {
+              withCredentials: true
+          });
+          
+          const cookies = response.headers['set-cookie'];
+          if (cookies) {
+              this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
+              if (!this.authCookie) {
+                  throw new Error('Authentication cookie not found in response');
+              }
+              // Set the cookie for future requests
+              this.session.defaults.headers.Cookie = this.authCookie;
+              console.log('Auth cookie set:', this.authCookie);
+          } else {
+              throw new Error('No cookies received in authentication response');
+          }
 
-            console.log('Login successful');
-        } catch (error) {
-            console.error('Login failed:', error.response ? error.response.data : error.message);
-            throw error;
-        }
-    }
+          console.log('Login successful');
+      } catch (error) {
+          console.error('Login failed:', error.response ? error.response.data : error.message);
+          throw error;
+      }
+  }
 
-    async get(uri, params = {}) {
-        try {
-            if (!this.authCookie) {
-                throw new Error('Not authenticated. Please login first.');
-            }
+  async get(uri, params = {}) {
+      try {
+          if (!this.authCookie) {
+              throw new Error('Not authenticated. Please login first.');
+          }
 
-            console.log('Sending request with auth cookie:', this.authCookie);
-            const response = await this.session.get(uri, {
-                params: params,
-                headers: {
-                    Cookie: this.authCookie
-                }
-            });
-            return response.data;
-        } catch (error) {
-            console.error(`Error fetching ${uri}:`, error.response ? error.response.data : error.message);
-            throw error;
-        }
-    }
+          console.log('Sending request with auth cookie:', this.authCookie);
+          const response = await this.session.get('data/' + uri, {
+              params: params,
+              headers: {
+                  Cookie: this.authCookie
+              }
+          });
+          return response.data;
+      } catch (error) {
+          console.error(`Error fetching ${uri}:`, error.response ? error.response.data : error.message);
+          throw error;
+      }
+  }
 }
 
 module.exports = IracingApi;
