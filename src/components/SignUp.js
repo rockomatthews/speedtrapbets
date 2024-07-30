@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TextField, 
   Button, 
@@ -7,10 +7,12 @@ import {
   Box, 
   Alert,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Divider
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Visibility, VisibilityOff, Google } from '@mui/icons-material';
 import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 const SignUp = () => {
   const [email, setEmail] = useState('');
@@ -19,6 +21,50 @@ const SignUp = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
+        await ensureUserInDatabase(session.user);
+        navigate('/dashboard');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  const ensureUserInDatabase = async (user) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking user:', error);
+      return;
+    }
+
+    if (!data) {
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert([
+          { 
+            id: user.id,
+            username: user.email.split('@')[0], 
+            iRacing_name: null 
+          }
+        ]);
+
+      if (insertError) {
+        console.error('Error inserting user:', insertError);
+      }
+    }
+  };
 
   const validateEmail = (email) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -33,6 +79,7 @@ const SignUp = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
 
     if (!validateEmail(email)) {
       setError('Please enter a valid email address.');
@@ -71,31 +118,27 @@ const SignUp = () => {
 
       // If sign up is successful, insert additional user data
       if (user) {
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([
-            { 
-              id: user.id, 
-              username: username, 
-              iRacing_name: iRacingName || null 
-            }
-          ]);
-
-        if (insertError) throw insertError;
+        await ensureUserInDatabase(user);
+        setSuccessMessage('Sign up successful! Please check your email to verify your account.');
       }
-
-      // Redirect or show success message
-      console.log('Sign up successful!');
-      // You might want to redirect the user or update the UI here
 
     } catch (error) {
       setError(error.message);
     }
   };
 
-  const handleGmailSignUp = () => {
-    // TODO: Implement Gmail sign-up logic using Supabase
-    console.log('Sign up with Gmail');
+  const handleGmailSignUp = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google'
+      });
+
+      if (error) throw error;
+
+      // The user data will be handled in the onAuthStateChange listener in useEffect
+    } catch (error) {
+      setError(error.message);
+    }
   };
 
   return (
@@ -111,7 +154,7 @@ const SignUp = () => {
         <Typography component="h1" variant="h5">
           Sign Up
         </Typography>
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
+        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
             required
@@ -174,6 +217,11 @@ const SignUp = () => {
               {error}
             </Alert>
           )}
+          {successMessage && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              {successMessage}
+            </Alert>
+          )}
           <Button
             type="submit"
             fullWidth
@@ -182,13 +230,15 @@ const SignUp = () => {
           >
             Sign Up
           </Button>
+          <Divider sx={{ my: 2 }}>OR</Divider>
           <Button
             fullWidth
             variant="outlined"
             onClick={handleGmailSignUp}
+            startIcon={<Google />}
             sx={{ mt: 1, mb: 2 }}
           >
-            Sign up with Gmail
+            Sign up with Google
           </Button>
         </Box>
       </Box>

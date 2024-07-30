@@ -1,7 +1,9 @@
 import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { CssBaseline, Container, ThemeProvider, createTheme } from '@mui/material';
 import CustomToolbar from './components/CustomToolbar';
-import SignUp from './components/SignUp'; // Import the new SignUp component
+import SignUp from './components/SignUp';
+import Dashboard from './components/Dashboard';
 
 const theme = createTheme();
 
@@ -9,11 +11,15 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <CustomToolbar />
-      <Container maxWidth="sm" sx={{ marginTop: 4 }}>
-        <SignUp /> {/* Add the SignUp component here */}
-        {/* Other components can be added here or conditionally rendered based on auth state */}
-      </Container>
+      <Router>
+        <CustomToolbar />
+        <Container maxWidth="sm" sx={{ marginTop: 4 }}>
+          <Routes>
+            <Route path="/" element={<SignUp />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Routes>
+        </Container>
+      </Router>
     </ThemeProvider>
   );
 }
