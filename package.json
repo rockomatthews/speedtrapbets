@@ -8,6 +8,7 @@
     "@mui/icons-material": "^5.16.5",
     "@mui/material": "^5.16.6",
     "@mui/x-data-grid": "^7.11.1",
+    "@project-serum/anchor": "^0.26.0",
     "@solana/wallet-adapter-phantom": "^0.9.24",
     "@solana/web3.js": "^1.95.1",
     "@supabase/supabase-js": "^2.44.4",

@@ -1,0 +1,100 @@
+{
+    "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+    "metadata": {
+      "name": "solana_betting",
+      "version": "0.1.0",
+      "spec": "0.1.0",
+      "description": "Created with Anchor"
+    },
+    "instructions": [
+      {
+        "name": "initialize",
+        "discriminator": [
+          175,
+          175,
+          109,
+          31,
+          13,
+          152,
+          155,
+          237
+        ],
+        "accounts": [
+          {
+            "name": "bet_account",
+            "writable": true,
+            "signer": true
+          },
+          {
+            "name": "user",
+            "writable": true,
+            "signer": true
+          },
+          {
+            "name": "system_program",
+            "address": "11111111111111111111111111111111"
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "place_bet",
+        "discriminator": [
+          222,
+          62,
+          67,
+          220,
+          63,
+          166,
+          126,
+          33
+        ],
+        "accounts": [
+          {
+            "name": "bet_account",
+            "writable": true
+          },
+          {
+            "name": "user",
+            "writable": true,
+            "signer": true
+          }
+        ],
+        "args": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    ],
+    "accounts": [
+      {
+        "name": "BetAccount",
+        "discriminator": [
+          117,
+          187,
+          165,
+          174,
+          194,
+          28,
+          119,
+          76
+        ]
+      }
+    ],
+    "types": [
+      {
+        "name": "BetAccount",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "bets",
+              "type": "u64"
+            }
+          ]
+        }
+      }
+    ]
+  }

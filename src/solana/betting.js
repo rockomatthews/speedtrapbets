@@ -1,6 +1,6 @@
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { Program, Provider, web3 } from '@project-serum/anchor';
-import idl from '../../target/idl/solana_betting.json';
+import idl from './idl.json';
 
 const programID = new PublicKey(idl.metadata.address);
 const network = clusterApiUrl('devnet');
