@@ -27,6 +27,7 @@ const SignUp = () => {
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
+        console.log('User signed in:', session.user);
         await ensureUserInDatabase(session.user);
         navigate('/dashboard');
       }
@@ -38,31 +39,37 @@ const SignUp = () => {
   }, [navigate]);
 
   const ensureUserInDatabase = async (user) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', user.id)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking user:', error);
-      return;
-    }
-
-    if (!data) {
-      const { error: insertError } = await supabase
+    try {
+      const { data, error } = await supabase
         .from('users')
-        .insert([
-          { 
-            id: user.id,
-            username: user.email.split('@')[0], 
-            iRacing_name: null 
-          }
-        ]);
+        .select('id')
+        .eq('id', user.id)
+        .single();
 
-      if (insertError) {
-        console.error('Error inserting user:', insertError);
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking user:', error);
+        throw error;
       }
+
+      if (!data) {
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert([
+            { 
+              id: user.id,
+              username: user.user_metadata.username || user.email.split('@')[0], 
+              iRacing_name: user.user_metadata.iRacing_name || null 
+            }
+          ]);
+
+        if (insertError) {
+          console.error('Error inserting user:', insertError);
+          throw insertError;
+        }
+      }
+    } catch (error) {
+      console.error('Error in ensureUserInDatabase:', error);
+      setError('An error occurred while setting up your account. Please try again.');
     }
   };
 
@@ -108,36 +115,46 @@ const SignUp = () => {
         return;
       }
 
-      // Sign up the user
-      const { user, error } = await supabase.auth.signUp({
+      // Sign up the user with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
+        options: {
+          data: {
+            username: username,
+            iRacing_name: iRacingName
+          }
+        }
       });
 
       if (error) throw error;
 
-      // If sign up is successful, insert additional user data
-      if (user) {
-        await ensureUserInDatabase(user);
+      if (data.user) {
+        await ensureUserInDatabase(data.user);
         setSuccessMessage('Sign up successful! Please check your email to verify your account.');
       }
 
     } catch (error) {
-      setError(error.message);
+      console.error('Sign up error:', error);
+      setError(error.message || 'An error occurred during sign up. Please try again.');
     }
   };
 
   const handleGmailSignUp = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google'
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard'
+        }
       });
 
       if (error) throw error;
 
       // The user data will be handled in the onAuthStateChange listener in useEffect
     } catch (error) {
-      setError(error.message);
+      console.error('Google sign in error:', error);
+      setError(error.message || 'An error occurred during Google sign in. Please try again.');
     }
   };
 
