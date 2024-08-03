@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { TextField, Button, Box, Typography } from '@mui/material';
+import React, { useState, useContext } from 'react';
+import { TextField, Button, Box, Typography, IconButton } from '@mui/material';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import { UserContext } from '../contexts/UserContext';  // We'll create this context later
 
 const Search = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState(null);
+  const { followedDrivers, setFollowedDrivers } = useContext(UserContext);
 
   const handleSearch = async () => {
     try {
@@ -14,14 +18,27 @@ const Search = () => {
       }
 
       const data = await response.json();
-      
-      console.log('API response:', data); // Log the full response for debugging
-
+      console.log('API response:', data);
       setSearchResult(data);
     } catch (error) {
       console.error('Error searching for driver:', error);
       setSearchResult({ found: false, error: error.message });
     }
+  };
+
+  const toggleFollow = (driver) => {
+    setFollowedDrivers(prev => {
+      const isFollowed = prev.some(d => d.cust_id === driver.cust_id);
+      if (isFollowed) {
+        return prev.filter(d => d.cust_id !== driver.cust_id);
+      } else {
+        return [...prev, driver];
+      }
+    });
+  };
+
+  const isFollowed = (driver) => {
+    return followedDrivers.some(d => d.cust_id === driver.cust_id);
   };
 
   return (
@@ -40,9 +57,14 @@ const Search = () => {
       {searchResult && (
         <Box sx={{ marginTop: 2 }}>
           {searchResult.found ? (
-            <Typography>
-              Driver found: {searchResult.driver.display_name} (ID: {searchResult.driver.cust_id})
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography>
+                Driver found: {searchResult.driver.display_name} (ID: {searchResult.driver.cust_id})
+              </Typography>
+              <IconButton onClick={() => toggleFollow(searchResult.driver)}>
+                {isFollowed(searchResult.driver) ? <StarIcon /> : <StarBorderIcon />}
+              </IconButton>
+            </Box>
           ) : (
             <Typography>Driver not found</Typography>
           )}

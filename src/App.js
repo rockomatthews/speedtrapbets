@@ -4,12 +4,14 @@ import { CssBaseline, Container, ThemeProvider, createTheme } from '@mui/materia
 import CustomToolbar from './components/CustomToolbar';
 import SignUp from './components/SignUp';
 import Dashboard from './components/Dashboard';
+import { UserProvider } from './contexts/UserContext';
 
 const theme = createTheme();
 
 function App() {
   return (
     <ThemeProvider theme={theme}>
+      <UserProvider>
       <CssBaseline />
       <Router>
         <CustomToolbar />
@@ -20,6 +22,7 @@ function App() {
           </Routes>
         </Container>
       </Router>
+      </UserProvider>
     </ThemeProvider>
   );
 }

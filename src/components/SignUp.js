@@ -38,6 +38,16 @@ const SignUp = () => {
     };
   }, [navigate]);
 
+  const validateEmail = (email) => {
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(String(email).toLowerCase());
+  };
+
+  const validateUsername = (username) => {
+    const re = /^[a-zA-Z0-9]+$/;
+    return re.test(username);
+  };
+
   const ensureUserInDatabase = async (user) => {
     try {
       const { data, error } = await supabase
@@ -57,6 +67,7 @@ const SignUp = () => {
           .insert([
             { 
               id: user.id,
+              email: user.email,
               username: user.user_metadata.username || user.email.split('@')[0], 
               iRacing_name: user.user_metadata.iRacing_name || null 
             }
@@ -71,16 +82,6 @@ const SignUp = () => {
       console.error('Error in ensureUserInDatabase:', error);
       setError('An error occurred while setting up your account. Please try again.');
     }
-  };
-
-  const validateEmail = (email) => {
-    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return re.test(String(email).toLowerCase());
-  };
-
-  const validateUsername = (username) => {
-    const re = /^[a-zA-Z0-9]+$/;
-    return re.test(username);
   };
 
   const handleSubmit = async (e) => {
@@ -130,7 +131,14 @@ const SignUp = () => {
       if (error) throw error;
 
       if (data.user) {
-        await ensureUserInDatabase(data.user);
+        await ensureUserInDatabase({
+          ...data.user,
+          email: email,
+          user_metadata: {
+            username: username,
+            iRacing_name: iRacingName
+          }
+        });
         setSuccessMessage('Sign up successful! Please check your email to verify your account.');
       }
 

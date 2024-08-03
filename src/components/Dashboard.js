@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Button } from '@mui/material';
+import { Container, Typography, Box, Button, Divider } from '@mui/material';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import SolanaBettingComponent from './SolanaBettingComponent';
+import Search from './Search'; // Import the Search component
+import FollowedDrivers from './FollowedDrivers';
+
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,6 +19,7 @@ const Dashboard = () => {
       } else {
         navigate('/');
       }
+      setLoading(false);
     };
 
     fetchUser();
@@ -26,37 +30,49 @@ const Dashboard = () => {
     navigate('/');
   };
 
+  if (loading) {
+    return <Typography>Loading...</Typography>;
+  }
+
   if (!user) {
-    return <div>Loading...</div>;
+    return <Typography>No user found. Please sign in.</Typography>;
   }
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Typography component="h1" variant="h5">
+    <Container maxWidth="md">
+      <Box sx={{ my: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
           Welcome to your Dashboard
         </Typography>
-        <Typography component="p" variant="body1" sx={{ mt: 2 }}>
+        <Typography variant="subtitle1">
           Email: {user.email}
         </Typography>
+        {user.user_metadata && user.user_metadata.username && (
+          <Typography variant="subtitle1">
+            Username: {user.user_metadata.username}
+          </Typography>
+        )}
+        {user.user_metadata && user.user_metadata.iRacing_name && (
+          <Typography variant="subtitle1">
+            iRacing Name: {user.user_metadata.iRacing_name}
+          </Typography>
+        )}
         <Button
           variant="contained"
-          color="primary"
+          color="secondary"
           onClick={handleSignOut}
-          sx={{ mt: 3, mb: 3 }}
+          sx={{ mt: 2 }}
         >
           Sign Out
         </Button>
-        
-        {/* Add the Solana Betting Component here */}
-        <SolanaBettingComponent />
+
+        <Divider sx={{ my: 4 }} />
+
+        <Typography variant="h5" component="h2" gutterBottom>
+          Search iRacer
+        </Typography>
+        <Search />
+        <FollowedDrivers />
       </Box>
     </Container>
   );
