@@ -138,27 +138,6 @@ class IracingApi {
         };
         return licenseMap[licenseGroup] || 'unknown';
     }
-
-    mapCategoryToType(category) {
-        const categoryMap = {
-            1: 'oval',
-            2: 'road',
-            3: 'dirt_oval',
-            4: 'formula'
-        };
-        return categoryMap[category] || 'unknown';
-    }
-
-    mapLicenseLevelToClass(licenseLevel) {
-        const licenseMap = {
-            1: 'Rookie',
-            2: 'D',
-            3: 'C',
-            4: 'B',
-            5: 'A'
-        };
-        return licenseMap[licenseLevel] || 'unknown';
-    }
 }
 
 module.exports = IracingApi;
