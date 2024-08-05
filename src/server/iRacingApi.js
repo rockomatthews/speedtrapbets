@@ -86,28 +86,50 @@ class IracingApi {
             // Fetch seasons data
             let seasonsData = await this.getData('series/seasons', { include_series: true });
             
+            console.log('Seasons data:', JSON.stringify(seasonsData, null, 2));
+    
             // Check if we need to fetch the actual data
             if (seasonsData.link) {
                 const response = await axios.get(seasonsData.link);
                 seasonsData = response.data;
+                console.log('Fetched seasons data:', JSON.stringify(seasonsData, null, 2));
             }
             
+            // Safely access series data
+            const series = seasonsData.data ? seasonsData.data.series : seasonsData.series;
+            
+            if (!series || !Array.isArray(series)) {
+                console.error('No valid series data found');
+                return [];
+            }
+    
             // Filter for official series
-            const officialSeries = seasonsData.series.filter(series => series.official);
+            const officialSeries = series.filter(series => series.official);
             
             // Fetch race guide data
             let raceGuideData = await this.getData('season/race_guide');
             
+            console.log('Race guide data:', JSON.stringify(raceGuideData, null, 2));
+    
             // Check if we need to fetch the actual data
             if (raceGuideData.link) {
                 const response = await axios.get(raceGuideData.link);
                 raceGuideData = response.data;
+                console.log('Fetched race guide data:', JSON.stringify(raceGuideData, null, 2));
             }
             
+            // Safely access sessions data
+            const sessions = raceGuideData.data ? raceGuideData.data.sessions : raceGuideData.sessions;
+    
+            if (!sessions || !Array.isArray(sessions)) {
+                console.error('No valid sessions data found');
+                return [];
+            }
+    
             // Filter race guide data for only the official series
-            const officialRaces = raceGuideData.sessions ? raceGuideData.sessions.filter(session => 
+            const officialRaces = sessions.filter(session => 
                 officialSeries.some(series => series.series_id === session.series_id)
-            ) : [];
+            );
             
             // Transform the data into the format expected by the frontend
             return officialRaces.map(race => ({
