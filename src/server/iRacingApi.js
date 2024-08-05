@@ -95,53 +95,48 @@ class IracingApi {
                 console.log('Fetched seasons data:', JSON.stringify(seasonsData, null, 2));
             }
             
-            // Safely access series data
-            const series = seasonsData.data ? seasonsData.data.series : seasonsData.series;
-            
-            if (!series || !Array.isArray(series)) {
-                console.error('No valid series data found');
+            // The data is an array of season objects
+            if (!Array.isArray(seasonsData)) {
+                console.error('Seasons data is not an array');
                 return [];
             }
     
             // Filter for official series
-            const officialSeries = series.filter(series => series.official);
-            
-            // Fetch race guide data
-            let raceGuideData = await this.getData('season/race_guide');
-            
-            console.log('Race guide data:', JSON.stringify(raceGuideData, null, 2));
-    
-            // Check if we need to fetch the actual data
-            if (raceGuideData.link) {
-                const response = await axios.get(raceGuideData.link);
-                raceGuideData = response.data;
-                console.log('Fetched race guide data:', JSON.stringify(raceGuideData, null, 2));
-            }
-            
-            // Safely access sessions data
-            const sessions = raceGuideData.data ? raceGuideData.data.sessions : raceGuideData.sessions;
-    
-            if (!sessions || !Array.isArray(sessions)) {
-                console.error('No valid sessions data found');
-                return [];
-            }
-    
-            // Filter race guide data for only the official series
-            const officialRaces = sessions.filter(session => 
-                officialSeries.some(series => series.series_id === session.series_id)
-            );
+            const officialSeries = seasonsData.filter(season => season.official);
             
             // Transform the data into the format expected by the frontend
-            return officialRaces.map(race => ({
-                name: race.series_name,
-                type: this.mapCategoryToType(race.category),
-                class: this.mapLicenseLevelToClass(race.license_level),
-                startTime: race.start_time
+            return officialSeries.map(season => ({
+                name: season.season_name,
+                type: this.mapCategoryToType(season.category_id),
+                class: this.mapLicenseLevelToClass(season.license_group),
+                startTime: season.schedules[0]?.start_date // Use the first schedule's start date
             }));
         } catch (error) {
             console.error('Error fetching official races:', error);
             throw error;
         }
+    }
+    
+    mapCategoryToType(categoryId) {
+        const categoryMap = {
+            1: 'oval',
+            2: 'road',
+            3: 'dirt_oval',
+            4: 'dirt_road',
+            5: 'sports_car'
+        };
+        return categoryMap[categoryId] || 'unknown';
+    }
+    
+    mapLicenseLevelToClass(licenseGroup) {
+        const licenseMap = {
+            1: 'Rookie',
+            2: 'D',
+            3: 'C',
+            4: 'B',
+            5: 'A'
+        };
+        return licenseMap[licenseGroup] || 'unknown';
     }
 
     mapCategoryToType(category) {
