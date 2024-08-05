@@ -84,18 +84,30 @@ class IracingApi {
     async getOfficialRaces() {
         try {
             // Fetch seasons data
-            const seasonsData = await this.getData('series/seasons', { include_series: true });
+            let seasonsData = await this.getData('series/seasons', { include_series: true });
+            
+            // Check if we need to fetch the actual data
+            if (seasonsData.link) {
+                const response = await axios.get(seasonsData.link);
+                seasonsData = response.data;
+            }
             
             // Filter for official series
             const officialSeries = seasonsData.series.filter(series => series.official);
             
             // Fetch race guide data
-            const raceGuideData = await this.getData('season/race_guide');
+            let raceGuideData = await this.getData('season/race_guide');
+            
+            // Check if we need to fetch the actual data
+            if (raceGuideData.link) {
+                const response = await axios.get(raceGuideData.link);
+                raceGuideData = response.data;
+            }
             
             // Filter race guide data for only the official series
-            const officialRaces = raceGuideData.sessions.filter(session => 
+            const officialRaces = raceGuideData.sessions ? raceGuideData.sessions.filter(session => 
                 officialSeries.some(series => series.series_id === session.series_id)
-            );
+            ) : [];
             
             // Transform the data into the format expected by the frontend
             return officialRaces.map(race => ({
