@@ -80,6 +80,56 @@ class IracingApi {
         
         return data;
     }
+
+    async getOfficialRaces() {
+        try {
+            // Fetch seasons data
+            const seasonsData = await this.getData('series/seasons', { include_series: true });
+            
+            // Filter for official series
+            const officialSeries = seasonsData.series.filter(series => series.official);
+            
+            // Fetch race guide data
+            const raceGuideData = await this.getData('season/race_guide');
+            
+            // Filter race guide data for only the official series
+            const officialRaces = raceGuideData.sessions.filter(session => 
+                officialSeries.some(series => series.series_id === session.series_id)
+            );
+            
+            // Transform the data into the format expected by the frontend
+            return officialRaces.map(race => ({
+                name: race.series_name,
+                type: this.mapCategoryToType(race.category),
+                class: this.mapLicenseLevelToClass(race.license_level),
+                startTime: race.start_time
+            }));
+        } catch (error) {
+            console.error('Error fetching official races:', error);
+            throw error;
+        }
+    }
+
+    mapCategoryToType(category) {
+        const categoryMap = {
+            1: 'oval',
+            2: 'road',
+            3: 'dirt_oval',
+            4: 'formula'
+        };
+        return categoryMap[category] || 'unknown';
+    }
+
+    mapLicenseLevelToClass(licenseLevel) {
+        const licenseMap = {
+            1: 'Rookie',
+            2: 'D',
+            3: 'C',
+            4: 'B',
+            5: 'A'
+        };
+        return licenseMap[licenseLevel] || 'unknown';
+    }
 }
 
 module.exports = IracingApi;

@@ -40,7 +40,40 @@ app.get('/api/search-driver', async (request, response) => {
     }
 });
 
+// New endpoint for fetching official races
+app.get('/api/official-races', async (request, response) => {
+    try {
+        console.log('Fetching official races');
+        const officialRaces = await iracingApi.getOfficialRaces();
+        console.log(`Retrieved ${officialRaces.length} official races`);
+        response.json(officialRaces);
+    } catch (error) {
+        console.error('Error fetching official races:', error);
+        response.status(500).json({
+            error: 'An error occurred while fetching official races',
+            details: error.message
+        });
+    }
+});
+
+// Error handling middleware
+app.use((error, request, response, next) => {
+    console.error('Unhandled error:', error);
+    response.status(500).json({
+        error: 'An unexpected error occurred',
+        details: error.message
+    });
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    app.close(() => {
+        console.log('HTTP server closed');
+    });
 });
