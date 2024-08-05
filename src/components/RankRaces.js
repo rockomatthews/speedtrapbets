@@ -1,7 +1,7 @@
 // components/RankRaces.js
 
 import React, { useState, useEffect } from 'react';
-import { Typography, Box, FormControl, InputLabel, Select, MenuItem, CircularProgress } from '@mui/material';
+import { Typography, Box, FormControl, InputLabel, Select, MenuItem, CircularProgress, Card, CardContent, Grid, Chip } from '@mui/material';
 
 const RankRaces = () => {
     const [officialRaces, setOfficialRaces] = useState([]);
@@ -9,6 +9,7 @@ const RankRaces = () => {
     const [classFilter, setClassFilter] = useState('all');
     const [isLoadingRaces, setIsLoadingRaces] = useState(false);
     const [error, setError] = useState('');
+    const [lastUpdated, setLastUpdated] = useState(null);
 
     useEffect(() => {
         const fetchOfficialRaces = async () => {
@@ -20,6 +21,7 @@ const RankRaces = () => {
                 }
                 const data = await response.json();
                 setOfficialRaces(data);
+                setLastUpdated(new Date());
             } catch (error) {
                 console.error('Error fetching official races:', error);
                 setError('Failed to fetch official races. Please try again later.');
@@ -29,9 +31,14 @@ const RankRaces = () => {
         };
 
         fetchOfficialRaces();
-        const interval = setInterval(fetchOfficialRaces, 60000);
+        const interval = setInterval(() => {
+            const now = new Date();
+            if (!lastUpdated || now - lastUpdated >= 60000) {
+                fetchOfficialRaces();
+            }
+        }, 60000);
         return () => clearInterval(interval);
-    }, []);
+    }, [lastUpdated]);
 
     const handleRaceTypeFilterChange = (event) => {
         setRaceTypeFilter(event.target.value);
@@ -48,7 +55,7 @@ const RankRaces = () => {
 
     return (
         <Box>
-            <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
+            <Typography variant="h5" component="h2" gutterBottom>Qualifying Official Races</Typography>
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
@@ -81,18 +88,37 @@ const RankRaces = () => {
             {isLoadingRaces ? (
                 <CircularProgress />
             ) : filteredRaces.length > 0 ? (
-                <Box sx={{ mt: 2 }}>
+                <Grid container spacing={2}>
                     {filteredRaces.map((race, index) => (
-                        <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #ccc', borderRadius: 2 }}>
-                            <Typography variant="h6">{race.name}</Typography>
-                            <Typography>Type: {race.type}</Typography>
-                            <Typography>Class: {race.class}</Typography>
-                            <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
-                        </Box>
+                        <Grid item xs={12} sm={6} md={4} key={index}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>{race.name}</Typography>
+                                    <Typography><strong>Type:</strong> {race.type}</Typography>
+                                    <Typography><strong>Class:</strong> {race.class}</Typography>
+                                    <Typography><strong>Track:</strong> {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                                    <Typography><strong>Cars:</strong> {race.carNames}</Typography>
+                                    <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
+                                    <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
+                                    <Typography><strong>Season Progress:</strong> Week {race.currentWeek + 1} of {race.maxWeeks}</Typography>
+                                    <Typography><strong>Schedule:</strong> {race.scheduleDescription}</Typography>
+                                    <Box sx={{ mt: 1 }}>
+                                        <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
+                                        <Chip label={`Season ID: ${race.seasonId}`} size="small" />
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
                     ))}
-                </Box>
+                </Grid>
             ) : (
-                <Typography>No races found matching the current filters.</Typography>
+                <Typography>No qualifying races found matching the current filters.</Typography>
+            )}
+
+            {lastUpdated && (
+                <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>
+                    Last updated: {lastUpdated.toLocaleString()}
+                </Typography>
             )}
         </Box>
     );
