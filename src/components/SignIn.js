@@ -8,13 +8,14 @@ import {
   Alert,
   IconButton,
   InputAdornment,
-  Divider
+  Divider,
+  Link
 } from '@mui/material';
 import { Visibility, VisibilityOff, Google } from '@mui/icons-material';
 import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
-const SignUp = () => {
+const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -51,7 +52,7 @@ const SignUp = () => {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       });
@@ -59,16 +60,17 @@ const SignUp = () => {
       if (error) throw error;
 
       if (data.user) {
-        setSuccessMessage('Sign up successful! Please check your email to verify your account.');
+        setSuccessMessage('Sign in successful!');
+        navigate('/dashboard');
       }
 
     } catch (error) {
-      console.error('Sign up error:', error);
-      setError(error.message || 'An error occurred during sign up. Please try again.');
+      console.error('Sign in error:', error);
+      setError(error.message || 'An error occurred during sign in. Please try again.');
     }
   };
 
-  const handleGmailSignUp = async () => {
+  const handleGoogleSignIn = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -87,7 +89,7 @@ const SignUp = () => {
   return (
     <Container component="main" maxWidth="xs">
       <Box sx={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography component="h1" variant="h5">Sign Up</Typography>
+        <Typography component="h1" variant="h5">Sign In</Typography>
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
@@ -109,7 +111,7 @@ const SignUp = () => {
             label="Password"
             type={showPassword ? 'text' : 'password'}
             id="password"
-            autoComplete="new-password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             InputProps={{
@@ -128,15 +130,20 @@ const SignUp = () => {
           />
           {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
           {successMessage && <Alert severity="success" sx={{ mt: 2 }}>{successMessage}</Alert>}
-          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>Sign Up</Button>
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>Sign In</Button>
           <Divider sx={{ my: 2 }}>OR</Divider>
-          <Button fullWidth variant="outlined" onClick={handleGmailSignUp} startIcon={<Google />} sx={{ mt: 1, mb: 2 }}>
-            Sign up with Google
+          <Button fullWidth variant="outlined" onClick={handleGoogleSignIn} startIcon={<Google />} sx={{ mt: 1, mb: 2 }}>
+            Sign in with Google
           </Button>
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Link component={RouterLink} to="/signup" variant="body2">
+              Don't have an account? Sign Up
+            </Link>
+          </Box>
         </Box>
       </Box>
     </Container>
   );
 };
 
-export default SignUp;
+export default SignIn;
