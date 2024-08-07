@@ -74,8 +74,8 @@ const RankRaces = () => {
     
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
-                    <InputLabel>Race Type</InputLabel>
-                    <Select value={raceTypeFilter} onChange={handleRaceTypeFilterChange}>
+                <InputLabel>Race Type</InputLabel>
+                <Select value={raceTypeFilter} onChange={handleRaceTypeFilterChange}>
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="oval">Oval</MenuItem>
                         <MenuItem value="road">Road</MenuItem>
