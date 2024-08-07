@@ -105,10 +105,10 @@ class IracingApi {
                 console.log('Fetched seasons data:', JSON.stringify(seasonsData, null, 2));
             }
             
-            // The data is an array of season objects
+            // Ensure seasonsData is an array
             if (!Array.isArray(seasonsData)) {
                 console.error('Seasons data is not an array');
-                return [];
+                return { races: [], totalCount: 0, page: page, pageSize: pageSize };
             }
     
             // Filter for official series
@@ -116,24 +116,28 @@ class IracingApi {
             
             // Transform the data into the format expected by the frontend
             const transformedRaces = officialSeries.flatMap(season => 
-                season.schedules.slice(0, 1).map(schedule => ({
+                (season.schedules || []).map(schedule => ({
                     name: season.season_name,
                     type: this.mapCategoryToType(season.category_id),
                     class: this.mapLicenseLevelToClass(season.license_group),
                     startTime: schedule.start_date,
                     state: this.getRaceState(schedule),
-                    sessionMinutes: schedule.race_time_descriptors[0]?.session_minutes,
+                    sessionMinutes: schedule.race_time_descriptors?.[0]?.session_minutes,
                     trackName: schedule.track?.track_name,
                     trackConfig: schedule.track?.config_name,
-                    carNames: season.car_classes?.map(cc => cc.name).join(', '),
+                    carNames: (season.car_classes || []).map(cc => cc.name).join(', '),
                     seriesId: season.series_id,
                     seasonId: season.season_id
                 }))
             );
     
+            console.log('Transformed races:', JSON.stringify(transformedRaces, null, 2));
+    
             // Filter for only qualifying races
             const qualifyingRaces = transformedRaces.filter(race => race.state === 'qualifying');
             
+            console.log('Qualifying races:', JSON.stringify(qualifyingRaces, null, 2));
+    
             const startIndex = (page - 1) * pageSize;
             const paginatedRaces = qualifyingRaces.slice(startIndex, startIndex + pageSize);
     
