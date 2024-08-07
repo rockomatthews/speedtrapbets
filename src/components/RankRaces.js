@@ -15,29 +15,32 @@ const RankRaces = () => {
     const fetchOfficialRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
         try {
-            const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch official races');
-            }
-            const data = await response.json();
-            console.log('Fetched data:', data);  // Add this line
-            if (pageNum === 1) {
-                setOfficialRaces(data.races);
-            } else {
-                setOfficialRaces(prev => [...prev, ...data.races]);
-            }
-            console.log('Updated officialRaces:', data.races);  // Add this line
-            setTotalCount(data.totalCount);
-            setHasMore(data.races.length === 10 && officialRaces.length + data.races.length < data.totalCount);
-            setLastUpdated(new Date());
-            setError('');
+          const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`);
+          console.log('Full API Response:', response);
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch official races');
+          }
+          
+          const data = await response.json();
+          console.log('Parsed API data:', data);
+          
+          if (pageNum === 1) {
+            setOfficialRaces(data.races);
+          } else {
+            setOfficialRaces(prev => [...prev, ...data.races]);
+          }
+          setTotalCount(data.totalCount);
+          setHasMore(data.races.length === 10 && officialRaces.length + data.races.length < data.totalCount);
+          setLastUpdated(new Date());
+          setError('');
         } catch (error) {
-            console.error('Error fetching official races:', error);
-            setError('Failed to fetch official races. Please try again later.');
+          console.error('Error fetching official races:', error);
+          setError('Failed to fetch official races. Please try again later.');
         } finally {
-            setIsLoadingRaces(false);
+          setIsLoadingRaces(false);
         }
-    }, [officialRaces.length]);
+      }, [officialRaces.length]);
 
     useEffect(() => {
         fetchOfficialRaces(1);
