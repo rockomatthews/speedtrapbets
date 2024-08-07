@@ -88,46 +88,63 @@ class IracingApi {
 
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
+            console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             let seasonsData = await this.getData('series/seasons', { include_series: true });
             
+            console.log('Initial API response:', JSON.stringify(seasonsData, null, 2));
+    
             if (seasonsData.link) {
+                console.log('Fetching data from link:', seasonsData.link);
                 const response = await axios.get(seasonsData.link);
                 seasonsData = response.data;
+                console.log('Data fetched from link:', JSON.stringify(seasonsData, null, 2));
             }
             
             if (!Array.isArray(seasonsData)) {
-                console.error('Seasons data is not an array');
+                console.error('Seasons data is not an array:', seasonsData);
                 return { races: [], totalCount: 0, page: page, pageSize: pageSize };
             }
     
-            const officialSeries = seasonsData.filter(season => season.official);
-            
-            const transformedRaces = await Promise.all(officialSeries.flatMap(async season => 
-                (season.schedules || []).map(async schedule => ({
-                    name: season.season_name,
-                    kind: this.getKindFromCategory(season.category_id),
-                    class: this.mapLicenseLevelToClass(season.license_group),
-                    startTime: schedule.start_date,
-                    state: this.getRaceState(schedule),
-                    sessionMinutes: schedule.race_time_descriptors?.[0]?.session_minutes,
-                    trackName: schedule.track?.track_name,
-                    trackConfig: schedule.track?.config_name,
-                    carNames: (season.car_classes || []).map(cc => cc.name).join(', '),
-                    seriesId: season.series_id,
-                    seasonId: season.season_id,
-                    registeredDrivers: schedule.registered_drivers || 0
-                }))
-            ));
+            console.log(`Total seasons: ${seasonsData.length}`);
     
-            const upcomingRaces = transformedRaces.flat().filter(race => 
+            const officialSeries = seasonsData.filter(season => season.official);
+            console.log(`Official series: ${officialSeries.length}`);
+    
+            const transformedRaces = officialSeries.flatMap(season => 
+                (season.schedules || []).map(schedule => {
+                    const raceState = this.getRaceState(schedule);
+                    return {
+                        name: season.season_name,
+                        kind: this.getKindFromCategory(season.category_id),
+                        class: this.mapLicenseLevelToClass(season.license_group),
+                        startTime: schedule.start_date,
+                        state: raceState,
+                        sessionMinutes: schedule.race_time_descriptors?.[0]?.session_minutes,
+                        trackName: schedule.track?.track_name,
+                        trackConfig: schedule.track?.config_name,
+                        carNames: (season.car_classes || []).map(cc => cc.name).join(', '),
+                        seriesId: season.series_id,
+                        seasonId: season.season_id,
+                        registeredDrivers: schedule.registered_drivers || 0
+                    };
+                })
+            );
+    
+            console.log(`Total transformed races: ${transformedRaces.length}`);
+    
+            const upcomingRaces = transformedRaces.filter(race => 
                 race.state === 'upcoming' || race.state === 'joinable'
             );
+    
+            console.log(`Upcoming races: ${upcomingRaces.length}`);
     
             // Sort races by start time
             upcomingRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
     
             const startIndex = (page - 1) * pageSize;
             const paginatedRaces = upcomingRaces.slice(startIndex, startIndex + pageSize);
+    
+            console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
     
             return {
                 races: paginatedRaces,
@@ -137,10 +154,11 @@ class IracingApi {
             };
         } catch (error) {
             console.error('Error fetching official races:', error);
+            console.error('Stack trace:', error.stack);
             throw error;
         }
     }
-
+    
     getRaceState(schedule) {
         const currentTime = new Date();
         const startDate = new Date(schedule.start_date);
