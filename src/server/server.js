@@ -1,13 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const timeout = require('connect-timeout');
 const IracingApi = require('./iRacingApi');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
-app.use(timeout('30s'));
-app.use(haltOnTimedout);
 
 const iracingApi = new IracingApi();
 let isAuthenticated = false;
@@ -46,7 +43,25 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/api/search-driver', checkAuth, async (request, response) => {
-    // ... (existing code)
+    try {
+        const searchTerm = request.query.searchTerm;
+        console.log('Searching for driver:', searchTerm);
+        const data = await iracingApi.searchDrivers(searchTerm);
+        
+        if (Array.isArray(data) && data.length > 0) {
+            console.log('Driver found:', data[0]);
+            response.json({ found: true, driver: data[0] });
+        } else {
+            console.log('Driver not found');
+            response.json({ found: false });
+        }
+    } catch (error) {
+        console.error('Error searching for driver:', error);
+        response.status(500).json({
+            error: 'An error occurred while searching for the driver',
+            details: error.message
+        });
+    }
 });
 
 app.get('/api/official-races', checkAuth, async (request, response) => {
@@ -76,10 +91,6 @@ app.use((error, request, response, next) => {
         stack: error.stack
     });
 });
-
-function haltOnTimedout(req, res, next) {
-    if (!req.timedout) next();
-}
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
