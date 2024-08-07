@@ -105,19 +105,16 @@ class IracingApi {
             const officialSeries = seasonsData.filter(season => season.official);
             
             // Transform the data into the format expected by the frontend
-            const transformedRaces = officialSeries.map(season => {
-                const raceState = this.getRaceState(season);
-                const schedule = season.schedules[0];
-                const raceTimeDescriptor = schedule?.race_time_descriptors[0];
-                return {
+            const transformedRaces = officialSeries.flatMap(season => 
+                season.schedules.map(schedule => ({
                     name: season.season_name,
                     type: this.mapCategoryToType(season.category_id),
                     class: this.mapLicenseLevelToClass(season.license_group),
-                    startTime: raceTimeDescriptor?.start_date,
-                    state: raceState,
-                    sessionMinutes: raceTimeDescriptor?.session_minutes,
-                    trackName: schedule?.track?.track_name,
-                    trackConfig: schedule?.track?.config_name,
+                    startTime: schedule.start_date,
+                    state: this.getRaceState(schedule),
+                    sessionMinutes: schedule.race_time_descriptors[0]?.session_minutes,
+                    trackName: schedule.track?.track_name,
+                    trackConfig: schedule.track?.config_name,
                     carNames: season.car_classes?.map(cc => cc.name).join(', '),
                     seriesId: season.series_id,
                     seasonId: season.season_id,
@@ -126,9 +123,10 @@ class IracingApi {
                     carClassIds: season.car_class_ids,
                     maxWeeks: season.max_weeks,
                     currentWeek: season.race_week,
-                    seriesLogo: season.series_logo
-                };
-            });
+                    seriesLogo: season.series_logo,
+                    weather: schedule.weather
+                }))
+            );
     
             // Filter for only qualifying races
             const qualifyingRaces = transformedRaces.filter(race => race.state === 'qualifying');
@@ -141,43 +139,10 @@ class IracingApi {
         }
     }
     
-    mapCategoryToType(categoryId) {
-        const categoryMap = {
-            1: 'oval',
-            2: 'road',
-            3: 'dirt_oval',
-            4: 'dirt_road',
-            5: 'sports_car'
-        };
-        return categoryMap[categoryId] || 'unknown';
-    }
-    
-    mapLicenseLevelToClass(licenseGroup) {
-        const licenseMap = {
-            1: 'Rookie',
-            2: 'D',
-            3: 'C',
-            4: 'B',
-            5: 'A'
-        };
-        return licenseMap[licenseGroup] || 'unknown';
-    }
-    
-    getRaceState(season) {
-        if (!season.schedules || season.schedules.length === 0) {
-            return 'unknown';
-        }
-    
+    getRaceState(schedule) {
         const currentTime = new Date();
-        const schedule = season.schedules[0]; // Assume we're looking at the first (current) schedule
-    
-        if (!schedule.race_time_descriptors || schedule.race_time_descriptors.length === 0) {
-            return 'unknown';
-        }
-    
-        const raceTimeDescriptor = schedule.race_time_descriptors[0];
-        const startDate = new Date(raceTimeDescriptor.start_date);
-        const sessionMinutes = raceTimeDescriptor.session_minutes;
+        const startDate = new Date(schedule.start_date);
+        const sessionMinutes = schedule.race_time_descriptors[0]?.session_minutes || 0;
     
         // Calculate the end time of the session
         const endDate = new Date(startDate.getTime() + sessionMinutes * 60000);
@@ -185,9 +150,7 @@ class IracingApi {
         if (currentTime < startDate) {
             return 'upcoming';
         } else if (currentTime >= startDate && currentTime < endDate) {
-            // If we're within the session time, we need to determine if it's qualifying or racing
-            // This might require additional information from the API
-            // For now, we'll assume the first half of the session is qualifying
+            // Assuming the first half of the session is qualifying
             const halfwayPoint = new Date(startDate.getTime() + (sessionMinutes / 2) * 60000);
             return currentTime < halfwayPoint ? 'qualifying' : 'racing';
         } else {
@@ -195,5 +158,4 @@ class IracingApi {
         }
     }
 }
-
 module.exports = IracingApi;

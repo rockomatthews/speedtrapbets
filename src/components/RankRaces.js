@@ -1,5 +1,3 @@
-// components/RankRaces.js
-
 import React, { useState, useEffect } from 'react';
 import { Typography, Box, FormControl, InputLabel, Select, MenuItem, CircularProgress, Card, CardContent, Grid, Chip } from '@mui/material';
 
@@ -22,6 +20,7 @@ const RankRaces = () => {
                 const data = await response.json();
                 setOfficialRaces(data);
                 setLastUpdated(new Date());
+                setError('');
             } catch (error) {
                 console.error('Error fetching official races:', error);
                 setError('Failed to fetch official races. Please try again later.');
@@ -31,14 +30,9 @@ const RankRaces = () => {
         };
 
         fetchOfficialRaces();
-        const interval = setInterval(() => {
-            const now = new Date();
-            if (!lastUpdated || now - lastUpdated >= 60000) {
-                fetchOfficialRaces();
-            }
-        }, 60000);
+        const interval = setInterval(fetchOfficialRaces, 60000);
         return () => clearInterval(interval);
-    }, [lastUpdated]);
+    }, []);
 
     const handleRaceTypeFilterChange = (event) => {
         setRaceTypeFilter(event.target.value);
