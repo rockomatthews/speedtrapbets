@@ -66,18 +66,18 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
 
 app.get('/api/official-races', checkAuth, async (request, response) => {
     try {
-        console.log('Fetching official races');
-        const officialRaces = await iracingApi.getOfficialRaces();
-        console.log(`Retrieved ${officialRaces.length} official races`);
-        console.log('First race:', JSON.stringify(officialRaces[0], null, 2));
+        const page = parseInt(request.query.page) || 1;
+        const pageSize = parseInt(request.query.pageSize) || 10;
+        
+        console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
+        const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
+        console.log(`Retrieved ${officialRaces.races.length} official races`);
         response.json(officialRaces);
     } catch (error) {
         console.error('Error fetching official races:', error);
-        console.error('Error stack:', error.stack);
         response.status(500).json({
             error: 'An error occurred while fetching official races',
-            details: error.message,
-            stack: error.stack
+            details: error.message
         });
     }
 });

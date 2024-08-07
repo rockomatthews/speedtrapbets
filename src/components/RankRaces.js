@@ -15,15 +15,18 @@ const RankRaces = () => {
             try {
                 const response = await fetch('https://speedtrapbets.onrender.com/api/official-races');
                 if (!response.ok) {
-                    throw new Error('Failed to fetch official races');
+                    const errorData = await response.json();
+                    console.error('Server error details:', errorData);
+                    throw new Error(`Failed to fetch official races: ${errorData.details || response.statusText}`);
                 }
                 const data = await response.json();
+                console.log('Fetched official races:', data);
                 setOfficialRaces(data);
                 setLastUpdated(new Date());
                 setError('');
             } catch (error) {
                 console.error('Error fetching official races:', error);
-                setError('Failed to fetch official races. Please try again later.');
+                setError(error.message || 'Failed to fetch official races. Please try again later.');
             } finally {
                 setIsLoadingRaces(false);
             }

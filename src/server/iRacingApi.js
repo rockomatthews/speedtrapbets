@@ -81,7 +81,7 @@ class IracingApi {
         return data;
     }
 
-    async getOfficialRaces() {
+    async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             // Fetch seasons data
             let seasonsData = await this.getData('series/seasons', { include_series: true });
@@ -106,7 +106,7 @@ class IracingApi {
             
             // Transform the data into the format expected by the frontend
             const transformedRaces = officialSeries.flatMap(season => 
-                season.schedules.map(schedule => ({
+                season.schedules.slice(0, 1).map(schedule => ({
                     name: season.season_name,
                     type: this.mapCategoryToType(season.category_id),
                     class: this.mapLicenseLevelToClass(season.license_group),
@@ -117,22 +117,23 @@ class IracingApi {
                     trackConfig: schedule.track?.config_name,
                     carNames: season.car_classes?.map(cc => cc.name).join(', '),
                     seriesId: season.series_id,
-                    seasonId: season.season_id,
-                    scheduleDescription: season.schedule_description,
-                    licenseGroup: season.license_group,
-                    carClassIds: season.car_class_ids,
-                    maxWeeks: season.max_weeks,
-                    currentWeek: season.race_week,
-                    seriesLogo: season.series_logo,
-                    weather: schedule.weather
+                    seasonId: season.season_id
                 }))
             );
     
             // Filter for only qualifying races
             const qualifyingRaces = transformedRaces.filter(race => race.state === 'qualifying');
+            
+            
+            const startIndex = (page - 1) * pageSize;
+            const paginatedRaces = qualifyingRaces.slice(startIndex, startIndex + pageSize);
     
-            console.log('Qualifying races:', JSON.stringify(qualifyingRaces, null, 2));
-            return qualifyingRaces;
+            return {
+                races: paginatedRaces,
+                totalCount: qualifyingRaces.length,
+                page: page,
+                pageSize: pageSize
+            };
         } catch (error) {
             console.error('Error fetching official races:', error);
             throw error;
