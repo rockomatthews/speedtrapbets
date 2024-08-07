@@ -3,9 +3,8 @@ import { Typography, Box, FormControl, InputLabel, Select, MenuItem, CircularPro
 
 const RankRaces = () => {
     const [officialRaces, setOfficialRaces] = useState([]);
-    const [raceTypeFilter, setRaceTypeFilter] = useState('all');
+    const [raceKindFilter, setRaceKindFilter] = useState('all');
     const [classFilter, setClassFilter] = useState('all');
-    const [stateFilter, setStateFilter] = useState('all');
     const [isLoadingRaces, setIsLoadingRaces] = useState(false);
     const [error, setError] = useState('');
     const [lastUpdated, setLastUpdated] = useState(null);
@@ -54,32 +53,27 @@ const RankRaces = () => {
         }
     };
 
-    const handleRaceTypeFilterChange = (event) => {
-        setRaceTypeFilter(event.target.value);
+    const handleRaceKindFilterChange = (event) => {
+        setRaceKindFilter(event.target.value);
     };
 
     const handleClassFilterChange = (event) => {
         setClassFilter(event.target.value);
     };
 
-    const handleStateFilterChange = (event) => {
-        setStateFilter(event.target.value);
-    };
-
     const filteredRaces = officialRaces.filter(race => 
-        (raceTypeFilter === 'all' || race.type === raceTypeFilter) &&
-        (classFilter === 'all' || race.class === classFilter) &&
-        (stateFilter === 'all' || race.state === stateFilter)
+        (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
+        (classFilter === 'all' || race.class === classFilter)
     );
 
     return (
         <Box>
-            <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
+            <Typography variant="h5" component="h2" gutterBottom>Upcoming Official Races</Typography>
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
-                    <InputLabel>Race Type</InputLabel>
-                    <Select value={raceTypeFilter} onChange={handleRaceTypeFilterChange}>
+                    <InputLabel>Race Kind</InputLabel>
+                    <Select value={raceKindFilter} onChange={handleRaceKindFilterChange}>
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="oval">Oval</MenuItem>
                         <MenuItem value="road">Road</MenuItem>
@@ -100,16 +94,6 @@ const RankRaces = () => {
                         <MenuItem value="A">A</MenuItem>
                     </Select>
                 </FormControl>
-
-                <FormControl sx={{ minWidth: 120 }}>
-                    <InputLabel>State</InputLabel>
-                    <Select value={stateFilter} onChange={handleStateFilterChange}>
-                        <MenuItem value="all">All</MenuItem>
-                        <MenuItem value="upcoming">Upcoming</MenuItem>
-                        <MenuItem value="in_progress">In Progress</MenuItem>
-                        <MenuItem value="completed">Completed</MenuItem>
-                    </Select>
-                </FormControl>
             </Box>
 
             {error && <Typography color="error">{error}</Typography>}
@@ -119,7 +103,7 @@ const RankRaces = () => {
             ) : filteredRaces.length > 0 ? (
                 <>
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                        Showing {filteredRaces.length} of {totalCount} total races
+                        Showing {filteredRaces.length} of {totalCount} total upcoming races
                     </Typography>
                     <Grid container spacing={2}>
                         {filteredRaces.map((race, index) => (
@@ -127,9 +111,8 @@ const RankRaces = () => {
                                 <Card>
                                     <CardContent>
                                         <Typography variant="h6">{race.name}</Typography>
-                                        <Typography>Type: {race.type}</Typography>
+                                        <Typography>Kind: {race.kind}</Typography>
                                         <Typography>Class: {race.class}</Typography>
-                                        <Typography>State: {race.state}</Typography>
                                         <Typography>Track: {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
                                         <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
                                         <Typography>Duration: {race.sessionMinutes} minutes</Typography>
@@ -154,7 +137,7 @@ const RankRaces = () => {
                     )}
                 </>
             ) : (
-                <Typography>No races found matching the current filters.</Typography>
+                <Typography>No upcoming races found matching the current filters.</Typography>
             )}
 
             {lastUpdated && (

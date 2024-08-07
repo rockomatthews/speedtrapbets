@@ -9,14 +9,13 @@ class IracingApi {
             withCredentials: true,
         });
 
-        // Bind methods to ensure correct 'this' context
         this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
         this.searchDrivers = this.searchDrivers.bind(this);
         this.getOfficialRaces = this.getOfficialRaces.bind(this);
         this.getRaceState = this.getRaceState.bind(this);
-        this.mapCategoryToType = this.mapCategoryToType.bind(this);
+        this.getKindFromCategory = this.getKindFromCategory.bind(this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
     }
 
@@ -28,14 +27,12 @@ class IracingApi {
                 password: encodedPassword,
             });
             
-            // Store the authentication cookie
             const cookies = response.headers['set-cookie'];
             if (cookies) {
                 this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
                 if (!this.authCookie) {
                     throw new Error('Authentication cookie not found in response');
                 }
-                // Set the cookie for future requests
                 this.session.defaults.headers.Cookie = this.authCookie;
             } else {
                 throw new Error('No cookies received in authentication response');
@@ -80,9 +77,7 @@ class IracingApi {
         if (leagueId) params.league_id = leagueId;
         const data = await this.getData('lookup/drivers', params);
         
-        // Check if the response contains a 'link' property
         if (data && data.link) {
-            // Fetch the actual data from the provided link
             const response = await axios.get(data.link);
             console.log('Driver search results:', response.data);
             return response.data;
@@ -107,10 +102,10 @@ class IracingApi {
 
             const officialSeries = seasonsData.filter(season => season.official);
             
-            const transformedRaces = officialSeries.flatMap(season => 
-                (season.schedules || []).map(schedule => ({
+            const transformedRaces = await Promise.all(officialSeries.flatMap(async season => 
+                (season.schedules || []).map(async schedule => ({
                     name: season.season_name,
-                    type: this.mapCategoryToType(season.category_id),
+                    kind: this.getKindFromCategory(season.category_id),
                     class: this.mapLicenseLevelToClass(season.license_group),
                     startTime: schedule.start_date,
                     state: this.getRaceState(schedule),
@@ -121,16 +116,16 @@ class IracingApi {
                     seriesId: season.series_id,
                     seasonId: season.season_id
                 }))
-            );
+            ));
 
-            console.log('Transformed races:', JSON.stringify(transformedRaces, null, 2));
+            const upcomingRaces = transformedRaces.flat().filter(race => race.state === 'upcoming');
 
             const startIndex = (page - 1) * pageSize;
-            const paginatedRaces = transformedRaces.slice(startIndex, startIndex + pageSize);
+            const paginatedRaces = upcomingRaces.slice(startIndex, startIndex + pageSize);
 
             return {
                 races: paginatedRaces,
-                totalCount: transformedRaces.length,
+                totalCount: upcomingRaces.length,
                 page: page,
                 pageSize: pageSize
             };
@@ -143,19 +138,10 @@ class IracingApi {
     getRaceState(schedule) {
         const currentTime = new Date();
         const startDate = new Date(schedule.start_date);
-        const sessionMinutes = schedule.race_time_descriptors?.[0]?.session_minutes || 0;
-        const endDate = new Date(startDate.getTime() + sessionMinutes * 60000);
-
-        if (currentTime < startDate) {
-            return 'upcoming';
-        } else if (currentTime >= startDate && currentTime < endDate) {
-            return 'in_progress';
-        } else {
-            return 'completed';
-        }
+        return currentTime < startDate ? 'upcoming' : 'completed';
     }
 
-    mapCategoryToType(categoryId) {
+    getKindFromCategory(categoryId) {
         const categoryMap = {
             1: 'oval',
             2: 'road',
