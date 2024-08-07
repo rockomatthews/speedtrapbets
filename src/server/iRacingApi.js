@@ -8,6 +8,16 @@ class IracingApi {
             baseURL: this.baseUrl,
             withCredentials: true,
         });
+
+        // Bind methods to ensure correct 'this' context
+        this.login = this.login.bind(this);
+        this.encodePassword = this.encodePassword.bind(this);
+        this.getData = this.getData.bind(this);
+        this.searchDrivers = this.searchDrivers.bind(this);
+        this.getOfficialRaces = this.getOfficialRaces.bind(this);
+        this.getRaceState = this.getRaceState.bind(this);
+        this.mapCategoryToType = this.mapCategoryToType.bind(this);
+        this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
     }
 
     async login(username, password) {
@@ -124,7 +134,6 @@ class IracingApi {
             // Filter for only qualifying races
             const qualifyingRaces = transformedRaces.filter(race => race.state === 'qualifying');
             
-            
             const startIndex = (page - 1) * pageSize;
             const paginatedRaces = qualifyingRaces.slice(startIndex, startIndex + pageSize);
     
@@ -158,5 +167,28 @@ class IracingApi {
             return 'completed';
         }
     }
+
+    mapCategoryToType(categoryId) {
+        const categoryMap = {
+            1: 'oval',
+            2: 'road',
+            3: 'dirt_oval',
+            4: 'dirt_road',
+            5: 'sports_car'
+        };
+        return categoryMap[categoryId] || 'unknown';
+    }
+
+    mapLicenseLevelToClass(licenseGroup) {
+        const licenseMap = {
+            1: 'Rookie',
+            2: 'D',
+            3: 'C',
+            4: 'B',
+            5: 'A'
+        };
+        return licenseMap[licenseGroup] || 'unknown';
+    }
 }
+
 module.exports = IracingApi;
