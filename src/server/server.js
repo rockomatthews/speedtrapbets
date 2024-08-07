@@ -12,19 +12,24 @@ let isAuthenticated = false;
 // Authenticate at startup
 (async function authenticateIRacing() {
     try {
+        console.log('Attempting to authenticate with iRacing API...');
         await iracingApi.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
         console.log('Authentication successful');
         isAuthenticated = true;
     } catch (error) {
         console.error('Authentication failed:', error);
+        console.error('Stack trace:', error.stack);
     }
 })();
 
 // Middleware to check authentication
 const checkAuth = (req, res, next) => {
+    console.log(`Checking authentication for request to ${req.url}`);
     if (!isAuthenticated) {
+        console.warn('Request denied: iRacing API not authenticated');
         return res.status(503).json({ error: 'iRacing API not authenticated' });
     }
+    console.log('Authentication check passed');
     next();
 };
 
@@ -36,9 +41,11 @@ app.use((req, res, next) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+    console.log('Health check requested');
     res.json({
         status: 'ok',
-        authenticated: isAuthenticated
+        authenticated: isAuthenticated,
+        serverTime: new Date().toISOString()
     });
 });
 
@@ -48,8 +55,10 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
         console.log('Searching for driver:', searchTerm);
         const data = await iracingApi.searchDrivers(searchTerm);
         
+        console.log('Raw search result:', JSON.stringify(data, null, 2));
+        
         if (Array.isArray(data) && data.length > 0) {
-            console.log('Driver found:', data[0]);
+            console.log('Driver found:', JSON.stringify(data[0], null, 2));
             response.json({ found: true, driver: data[0] });
         } else {
             console.log('Driver not found');
@@ -57,9 +66,11 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
         }
     } catch (error) {
         console.error('Error searching for driver:', error);
+        console.error('Stack trace:', error.stack);
         response.status(500).json({
             error: 'An error occurred while searching for the driver',
-            details: error.message
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
@@ -72,12 +83,22 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
         const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
         console.log(`Retrieved ${officialRaces.races.length} official races`);
-        response.json(officialRaces);
+        console.log('First race:', JSON.stringify(officialRaces.races[0], null, 2));
+        console.log('Total count:', officialRaces.totalCount);
+        
+        response.json({
+            races: officialRaces.races,
+            totalCount: officialRaces.totalCount,
+            page: page,
+            pageSize: pageSize
+        });
     } catch (error) {
         console.error('Error fetching official races:', error);
+        console.error('Stack trace:', error.stack);
         response.status(500).json({
             error: 'An error occurred while fetching official races',
-            details: error.message
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
@@ -85,22 +106,29 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
 // Error handling middleware
 app.use((error, request, response, next) => {
     console.error('Unhandled error:', error);
+    console.error('Stack trace:', error.stack);
     response.status(500).json({
         error: 'An unexpected error occurred',
         details: error.message,
-        stack: error.stack
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
-    app.close(() => {
+    server.close(() => {
         console.log('HTTP server closed');
     });
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Application specific logging, throwing an error, or other logic here
 });
