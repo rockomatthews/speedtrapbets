@@ -156,7 +156,7 @@ class IracingApi {
     getRaceState(schedule) {
         const currentTime = new Date();
         const startDate = new Date(schedule.start_date);
-        const sessionMinutes = schedule.race_time_descriptors[0]?.session_minutes || 0;
+        const sessionMinutes = schedule.race_time_descriptors?.[0]?.session_minutes || 0;
     
         // Calculate the end time of the session
         const endDate = new Date(startDate.getTime() + sessionMinutes * 60000);
@@ -164,9 +164,9 @@ class IracingApi {
         if (currentTime < startDate) {
             return 'upcoming';
         } else if (currentTime >= startDate && currentTime < endDate) {
-            // Assuming the first half of the session is qualifying
-            const halfwayPoint = new Date(startDate.getTime() + (sessionMinutes / 2) * 60000);
-            return currentTime < halfwayPoint ? 'qualifying' : 'racing';
+            // Assuming the first 15 minutes of the session is qualifying
+            const qualifyingEndTime = new Date(startDate.getTime() + 15 * 60000);
+            return currentTime < qualifyingEndTime ? 'qualifying' : 'racing';
         } else {
             return 'completed';
         }
