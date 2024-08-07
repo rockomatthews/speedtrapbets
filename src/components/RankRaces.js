@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Typography, Box, FormControl, InputLabel, Select, MenuItem, CircularProgress, Card, CardContent, Grid, Chip } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Typography, Box, FormControl, InputLabel, Select, MenuItem, CircularProgress, Card, CardContent, Grid, Chip, Button } from '@mui/material';
 
 const RankRaces = () => {
     const [officialRaces, setOfficialRaces] = useState([]);
@@ -8,34 +8,45 @@ const RankRaces = () => {
     const [isLoadingRaces, setIsLoadingRaces] = useState(false);
     const [error, setError] = useState('');
     const [lastUpdated, setLastUpdated] = useState(null);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [totalCount, setTotalCount] = useState(0);
+
+    const fetchOfficialRaces = useCallback(async (pageNum) => {
+        setIsLoadingRaces(true);
+        try {
+            const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch official races');
+            }
+            const data = await response.json();
+            if (pageNum === 1) {
+                setOfficialRaces(data.races);
+            } else {
+                setOfficialRaces(prev => [...prev, ...data.races]);
+            }
+            setTotalCount(data.totalCount);
+            setHasMore(data.races.length === 10 && officialRaces.length + data.races.length < data.totalCount);
+            setLastUpdated(new Date());
+            setError('');
+        } catch (error) {
+            console.error('Error fetching official races:', error);
+            setError('Failed to fetch official races. Please try again later.');
+        } finally {
+            setIsLoadingRaces(false);
+        }
+    }, [officialRaces.length]);
 
     useEffect(() => {
-        const fetchOfficialRaces = async () => {
-            setIsLoadingRaces(true);
-            try {
-                const response = await fetch('https://speedtrapbets.onrender.com/api/official-races');
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Server error details:', errorData);
-                    throw new Error(`Failed to fetch official races: ${errorData.details || response.statusText}`);
-                }
-                const data = await response.json();
-                console.log('Fetched official races:', data);
-                setOfficialRaces(data);
-                setLastUpdated(new Date());
-                setError('');
-            } catch (error) {
-                console.error('Error fetching official races:', error);
-                setError(error.message || 'Failed to fetch official races. Please try again later.');
-            } finally {
-                setIsLoadingRaces(false);
-            }
-        };
+        fetchOfficialRaces(1);
+    }, [fetchOfficialRaces]);
 
-        fetchOfficialRaces();
-        const interval = setInterval(fetchOfficialRaces, 60000);
-        return () => clearInterval(interval);
-    }, []);
+    const loadMore = () => {
+        if (!isLoadingRaces && hasMore) {
+            setPage(prevPage => prevPage + 1);
+            fetchOfficialRaces(page + 1);
+        }
+    };
 
     const handleRaceTypeFilterChange = (event) => {
         setRaceTypeFilter(event.target.value);
@@ -82,32 +93,44 @@ const RankRaces = () => {
 
             {error && <Typography color="error">{error}</Typography>}
 
-            {isLoadingRaces ? (
+            {isLoadingRaces && page === 1 ? (
                 <CircularProgress />
             ) : filteredRaces.length > 0 ? (
-                <Grid container spacing={2}>
-                    {filteredRaces.map((race, index) => (
-                        <Grid item xs={12} sm={6} md={4} key={index}>
-                            <Card>
-                                <CardContent>
-                                    <Typography variant="h6" gutterBottom>{race.name}</Typography>
-                                    <Typography><strong>Type:</strong> {race.type}</Typography>
-                                    <Typography><strong>Class:</strong> {race.class}</Typography>
-                                    <Typography><strong>Track:</strong> {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
-                                    <Typography><strong>Cars:</strong> {race.carNames}</Typography>
-                                    <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
-                                    <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
-                                    <Typography><strong>Season Progress:</strong> Week {race.currentWeek + 1} of {race.maxWeeks}</Typography>
-                                    <Typography><strong>Schedule:</strong> {race.scheduleDescription}</Typography>
-                                    <Box sx={{ mt: 1 }}>
-                                        <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
-                                        <Chip label={`Season ID: ${race.seasonId}`} size="small" />
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    ))}
-                </Grid>
+                <>
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                        Showing {filteredRaces.length} of {totalCount} total races
+                    </Typography>
+                    <Grid container spacing={2}>
+                        {filteredRaces.map((race, index) => (
+                            <Grid item xs={12} sm={6} md={4} key={index}>
+                                <Card>
+                                    <CardContent>
+                                        <Typography variant="h6">{race.name}</Typography>
+                                        <Typography>Type: {race.type}</Typography>
+                                        <Typography>Class: {race.class}</Typography>
+                                        <Typography>Track: {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                                        <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
+                                        <Typography>Duration: {race.sessionMinutes} minutes</Typography>
+                                        <Typography>Cars: {race.carNames}</Typography>
+                                        <Box sx={{ mt: 1 }}>
+                                            <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
+                                            <Chip label={`Season ID: ${race.seasonId}`} size="small" />
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        ))}
+                    </Grid>
+                    {hasMore && (
+                        <Button 
+                            onClick={loadMore} 
+                            disabled={isLoadingRaces}
+                            sx={{ mt: 2 }}
+                        >
+                            {isLoadingRaces ? 'Loading...' : 'Load More'}
+                        </Button>
+                    )}
+                </>
             ) : (
                 <Typography>No qualifying races found matching the current filters.</Typography>
             )}
