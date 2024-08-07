@@ -1,5 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Typography, Box, FormControl, InputLabel, Select, MenuItem, CircularProgress, Card, CardContent, Grid, Chip, Button } from '@mui/material';
+import { 
+    Typography, 
+    Box, 
+    FormControl, 
+    InputLabel, 
+    Select, 
+    MenuItem, 
+    CircularProgress, 
+    Card, 
+    CardContent, 
+    Grid, 
+    Chip, 
+    Button 
+} from '@mui/material';
 
 const RankRaces = () => {
     const [officialRaces, setOfficialRaces] = useState([]);
@@ -28,7 +41,7 @@ const RankRaces = () => {
             if (pageNum === 1) {
                 setOfficialRaces(data.races);
             } else {
-                setOfficialRaces(prev => [...prev, ...data.races]);
+                setOfficialRaces(prevRaces => [...prevRaces, ...data.races]);
             }
             setTotalCount(data.totalCount);
             setHasMore(data.races.length === 10 && officialRaces.length + data.races.length < data.totalCount);
@@ -66,6 +79,9 @@ const RankRaces = () => {
         (classFilter === 'all' || race.class === classFilter)
     );
 
+    // Sort races by start time
+    const sortedRaces = [...filteredRaces].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
     return (
         <Box>
             <Typography variant="h5" component="h2" gutterBottom>Upcoming Official Races</Typography>
@@ -100,13 +116,13 @@ const RankRaces = () => {
 
             {isLoadingRaces && page === 1 ? (
                 <CircularProgress />
-            ) : filteredRaces.length > 0 ? (
+            ) : sortedRaces.length > 0 ? (
                 <>
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                        Showing {filteredRaces.length} of {totalCount} total upcoming races
+                        Showing {sortedRaces.length} of {totalCount} total upcoming races
                     </Typography>
                     <Grid container spacing={2}>
-                        {filteredRaces.map((race, index) => (
+                        {sortedRaces.map((race, index) => (
                             <Grid item xs={12} sm={6} md={4} key={index}>
                                 <Card>
                                     <CardContent>
@@ -117,6 +133,8 @@ const RankRaces = () => {
                                         <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
                                         <Typography>Duration: {race.sessionMinutes} minutes</Typography>
                                         <Typography>Cars: {race.carNames}</Typography>
+                                        <Typography>State: {race.state}</Typography>
+                                        <Typography>Registered Drivers: {race.registeredDrivers || 'N/A'}</Typography>
                                         <Box sx={{ mt: 1 }}>
                                             <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
                                             <Chip label={`Season ID: ${race.seasonId}`} size="small" />

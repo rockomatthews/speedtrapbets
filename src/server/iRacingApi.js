@@ -99,7 +99,7 @@ class IracingApi {
                 console.error('Seasons data is not an array');
                 return { races: [], totalCount: 0, page: page, pageSize: pageSize };
             }
-
+    
             const officialSeries = seasonsData.filter(season => season.official);
             
             const transformedRaces = await Promise.all(officialSeries.flatMap(async season => 
@@ -114,15 +114,21 @@ class IracingApi {
                     trackConfig: schedule.track?.config_name,
                     carNames: (season.car_classes || []).map(cc => cc.name).join(', '),
                     seriesId: season.series_id,
-                    seasonId: season.season_id
+                    seasonId: season.season_id,
+                    registeredDrivers: schedule.registered_drivers || 0
                 }))
             ));
-
-            const upcomingRaces = transformedRaces.flat().filter(race => race.state === 'upcoming');
-
+    
+            const upcomingRaces = transformedRaces.flat().filter(race => 
+                race.state === 'upcoming' || race.state === 'joinable'
+            );
+    
+            // Sort races by start time
+            upcomingRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    
             const startIndex = (page - 1) * pageSize;
             const paginatedRaces = upcomingRaces.slice(startIndex, startIndex + pageSize);
-
+    
             return {
                 races: paginatedRaces,
                 totalCount: upcomingRaces.length,
@@ -138,7 +144,16 @@ class IracingApi {
     getRaceState(schedule) {
         const currentTime = new Date();
         const startDate = new Date(schedule.start_date);
-        return currentTime < startDate ? 'upcoming' : 'completed';
+        const timeDifference = startDate - currentTime;
+        const minutesUntilStart = timeDifference / (1000 * 60);
+    
+        if (minutesUntilStart > 30) {
+            return 'upcoming';
+        } else if (minutesUntilStart <= 30 && minutesUntilStart > -5) {
+            return 'joinable';
+        } else {
+            return 'in_progress';
+        }
     }
 
     getKindFromCategory(categoryId) {
