@@ -93,28 +93,20 @@ class IracingApi {
 
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
-            // Fetch seasons data
             let seasonsData = await this.getData('series/seasons', { include_series: true });
             
-            console.log('Seasons data:', JSON.stringify(seasonsData, null, 2));
-    
-            // Check if we need to fetch the actual data
             if (seasonsData.link) {
                 const response = await axios.get(seasonsData.link);
                 seasonsData = response.data;
-                console.log('Fetched seasons data:', JSON.stringify(seasonsData, null, 2));
             }
             
-            // Ensure seasonsData is an array
             if (!Array.isArray(seasonsData)) {
                 console.error('Seasons data is not an array');
                 return { races: [], totalCount: 0, page: page, pageSize: pageSize };
             }
-    
-            // Filter for official series
+
             const officialSeries = seasonsData.filter(season => season.official);
             
-            // Transform the data into the format expected by the frontend
             const transformedRaces = officialSeries.flatMap(season => 
                 (season.schedules || []).map(schedule => ({
                     name: season.season_name,
@@ -130,20 +122,15 @@ class IracingApi {
                     seasonId: season.season_id
                 }))
             );
-    
+
             console.log('Transformed races:', JSON.stringify(transformedRaces, null, 2));
-    
-            // Filter for only qualifying races
-            const qualifyingRaces = transformedRaces.filter(race => race.state === 'qualifying');
-            
-            console.log('Qualifying races:', JSON.stringify(qualifyingRaces, null, 2));
-    
+
             const startIndex = (page - 1) * pageSize;
-            const paginatedRaces = qualifyingRaces.slice(startIndex, startIndex + pageSize);
-    
+            const paginatedRaces = transformedRaces.slice(startIndex, startIndex + pageSize);
+
             return {
                 races: paginatedRaces,
-                totalCount: qualifyingRaces.length,
+                totalCount: transformedRaces.length,
                 page: page,
                 pageSize: pageSize
             };
@@ -152,21 +139,17 @@ class IracingApi {
             throw error;
         }
     }
-    
+
     getRaceState(schedule) {
         const currentTime = new Date();
         const startDate = new Date(schedule.start_date);
         const sessionMinutes = schedule.race_time_descriptors?.[0]?.session_minutes || 0;
-    
-        // Calculate the end time of the session
         const endDate = new Date(startDate.getTime() + sessionMinutes * 60000);
-    
+
         if (currentTime < startDate) {
             return 'upcoming';
         } else if (currentTime >= startDate && currentTime < endDate) {
-            // Assuming the first 15 minutes of the session is qualifying
-            const qualifyingEndTime = new Date(startDate.getTime() + 15 * 60000);
-            return currentTime < qualifyingEndTime ? 'qualifying' : 'racing';
+            return 'in_progress';
         } else {
             return 'completed';
         }
