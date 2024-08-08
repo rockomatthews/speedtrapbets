@@ -76,7 +76,7 @@ const RankRaces = () => {
     };
 
     const filteredRaces = officialRaces.filter(race => 
-        (raceKindFilter === 'all' || race.carClass.toLowerCase().includes(raceKindFilter)) &&
+        (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
         (classFilter === 'all' || race.licenseLevel === classFilter)
     );
 
@@ -91,7 +91,9 @@ const RankRaces = () => {
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="oval">Oval</MenuItem>
                         <MenuItem value="road">Road</MenuItem>
-                        <MenuItem value="dirt">Dirt</MenuItem>
+                        <MenuItem value="dirt_oval">Dirt Oval</MenuItem>
+                        <MenuItem value="dirt_road">Dirt Road</MenuItem>
+                        <MenuItem value="sports_car">Sports Car</MenuItem>
                     </Select>
                 </FormControl>
 
@@ -123,10 +125,12 @@ const RankRaces = () => {
                                 <Card>
                                     <CardContent>
                                         <Typography variant="h6">{race.name}</Typography>
+                                        <Typography>Kind: {race.kind}</Typography>
+                                        <Typography>License Level: {race.licenseLevel}</Typography>
                                         <Typography>Track: {race.trackName}</Typography>
-                                        <Typography>Class: {race.carClass}</Typography>
-                                        <Typography>License: {race.licenseLevel}</Typography>
                                         <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
+                                        <Typography>Duration: {race.sessionMinutes} minutes</Typography>
+                                        <Typography>Car Class: {race.carClass}</Typography>
                                         <Typography>
                                             Drivers: {race.registeredDrivers} / {race.maxDrivers}
                                         </Typography>
