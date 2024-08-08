@@ -76,12 +76,9 @@ const RankRaces = () => {
     };
 
     const filteredRaces = officialRaces.filter(race => 
-        (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
-        (classFilter === 'all' || race.class === classFilter)
+        (raceKindFilter === 'all' || race.carClass.toLowerCase().includes(raceKindFilter)) &&
+        (classFilter === 'all' || race.licenseLevel === classFilter)
     );
-
-    // Sort races by start time
-    const sortedRaces = [...filteredRaces].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
     return (
         <Box>
@@ -94,9 +91,7 @@ const RankRaces = () => {
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="oval">Oval</MenuItem>
                         <MenuItem value="road">Road</MenuItem>
-                        <MenuItem value="dirt_oval">Dirt Oval</MenuItem>
-                        <MenuItem value="dirt_road">Dirt Road</MenuItem>
-                        <MenuItem value="sports_car">Sports Car</MenuItem>
+                        <MenuItem value="dirt">Dirt</MenuItem>
                     </Select>
                 </FormControl>
 
@@ -117,24 +112,21 @@ const RankRaces = () => {
 
             {isLoadingRaces && page === 1 ? (
                 <CircularProgress />
-            ) : sortedRaces.length > 0 ? (
+            ) : filteredRaces.length > 0 ? (
                 <>
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                        Showing {sortedRaces.length} of {totalCount} total upcoming races
+                        Showing {filteredRaces.length} of {totalCount} total upcoming races
                     </Typography>
                     <Grid container spacing={2}>
-                        {sortedRaces.map((race, index) => (
+                        {filteredRaces.map((race, index) => (
                             <Grid item xs={12} sm={6} md={4} key={index}>
                                 <Card>
                                     <CardContent>
                                         <Typography variant="h6">{race.name}</Typography>
-                                        <Typography>Kind: {race.kind}</Typography>
-                                        <Typography>Class: {race.class}</Typography>
-                                        <Typography>Track: {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                                        <Typography>Track: {race.trackName}</Typography>
+                                        <Typography>Class: {race.carClass}</Typography>
+                                        <Typography>License: {race.licenseLevel}</Typography>
                                         <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
-                                        <Typography>Duration: {race.sessionMinutes} minutes</Typography>
-                                        <Typography>Cars: {race.carNames}</Typography>
-                                        <Typography>State: {race.state}</Typography>
                                         <Typography>
                                             Drivers: {race.registeredDrivers} / {race.maxDrivers}
                                         </Typography>
