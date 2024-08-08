@@ -89,7 +89,15 @@ class IracingApi {
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
-            let raceGuideData = await this.getData('season/race_guide');
+            
+            // Get the current time in ISO format
+            const currentTime = new Date().toISOString();
+    
+            // Fetch race guide data
+            let raceGuideData = await this.getData('season/race_guide', {
+                from: currentTime,
+                include_end_after_from: true
+            });
     
             console.log('Initial API response:', JSON.stringify(raceGuideData, null, 2));
     
@@ -107,39 +115,44 @@ class IracingApi {
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
     
-            const currentTime = new Date();
-            const upcomingRaces = raceGuideData.sessions.filter(session => {
-                const startTime = new Date(session.start_time);
-                return startTime > currentTime;
-            });
+            const officialRaces = raceGuideData.sessions.filter(session => session.official);
+            console.log(`Official races: ${officialRaces.length}`);
+    
+            const transformedRaces = officialRaces.map(race => ({
+                name: race.series_name,
+                kind: this.getKindFromCategory(race.category_id),
+                class: this.mapLicenseLevelToClass(race.license_group),
+                startTime: race.start_time,
+                state: this.getRaceState(race),
+                sessionMinutes: race.duration,
+                trackName: race.track.track_name,
+                trackConfig: race.track.config_name,
+                carNames: race.car_classes.map(cc => cc.name).join(', '),
+                seriesId: race.series_id,
+                seasonId: race.season_id,
+                registeredDrivers: race.registered_drivers,
+                maxDrivers: race.max_drivers
+            }));
+    
+            console.log(`Transformed races: ${transformedRaces.length}`);
+    
+            const upcomingRaces = transformedRaces.filter(race => 
+                race.state === 'upcoming' || race.state === 'joinable'
+            );
     
             console.log(`Upcoming races: ${upcomingRaces.length}`);
     
-            const transformedRaces = upcomingRaces.map(race => ({
-                name: race.series_name || 'Unknown Series',
-                startTime: race.start_time,
-                endTime: race.end_time,
-                trackName: race.track?.track_name || 'Unknown Track',
-                carClass: race.car_classes?.[0]?.name || 'Unknown Class',
-                sessionId: race.session_id,
-                seriesId: race.series_id,
-                seasonId: race.season_id,
-                registeredDrivers: race.entry_count,
-                maxDrivers: race.max_entry_count || 0,
-                licenseLevel: this.mapLicenseLevelToClass(race.license_group || 0),
-                raceWeekNum: race.race_week_num
-            }));
-    
-            transformedRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+            // Sort races by start time
+            upcomingRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
     
             const startIndex = (page - 1) * pageSize;
-            const paginatedRaces = transformedRaces.slice(startIndex, startIndex + pageSize);
+            const paginatedRaces = upcomingRaces.slice(startIndex, startIndex + pageSize);
     
             console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
     
             return {
                 races: paginatedRaces,
-                totalCount: transformedRaces.length,
+                totalCount: upcomingRaces.length,
                 page: page,
                 pageSize: pageSize
             };
@@ -150,6 +163,32 @@ class IracingApi {
         }
     }
     
+    getRaceState(race) {
+        const currentTime = new Date();
+        const startTime = new Date(race.start_time);
+        const timeDifference = startTime - currentTime;
+        const minutesUntilStart = timeDifference / (1000 * 60);
+    
+        if (minutesUntilStart > 30) {
+            return 'upcoming';
+        } else if (minutesUntilStart <= 30 && minutesUntilStart > -5) {
+            return 'joinable';
+        } else {
+            return 'in_progress';
+        }
+    }
+
+    getKindFromCategory(categoryId) {
+        const categoryMap = {
+            1: 'oval',
+            2: 'road',
+            3: 'dirt_oval',
+            4: 'dirt_road',
+            5: 'sports_car'
+        };
+        return categoryMap[categoryId] || 'unknown';
+    }
+
     mapLicenseLevelToClass(licenseGroup) {
         const licenseMap = {
             1: 'Rookie',
@@ -158,7 +197,7 @@ class IracingApi {
             4: 'B',
             5: 'A'
         };
-        return licenseMap[licenseGroup] || 'Unknown';
+        return licenseMap[licenseGroup] || 'unknown';
     }
 }
 
