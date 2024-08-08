@@ -54,6 +54,9 @@ const SignUp = () => {
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
+        options: {
+          emailRedirectTo: `${process.env.REACT_APP_URL}/dashboard`
+        }
       });
 
       if (error) throw error;
@@ -73,7 +76,7 @@ const SignUp = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/dashboard'
+          redirectTo: `${process.env.REACT_APP_URL}/dashboard`
         }
       });
 
