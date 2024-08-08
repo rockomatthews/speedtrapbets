@@ -11,7 +11,8 @@ import {
     CardContent, 
     Grid, 
     Chip, 
-    Button 
+    Button,
+    LinearProgress 
 } from '@mui/material';
 
 const RankRaces = () => {
@@ -134,7 +135,14 @@ const RankRaces = () => {
                                         <Typography>Duration: {race.sessionMinutes} minutes</Typography>
                                         <Typography>Cars: {race.carNames}</Typography>
                                         <Typography>State: {race.state}</Typography>
-                                        <Typography>Registered Drivers: {race.registeredDrivers || 'N/A'}</Typography>
+                                        <Typography>
+                                            Drivers: {race.registeredDrivers} / {race.maxDrivers}
+                                        </Typography>
+                                        <LinearProgress 
+                                            variant="determinate" 
+                                            value={(race.registeredDrivers / race.maxDrivers) * 100} 
+                                            sx={{ mt: 1, mb: 1 }}
+                                        />
                                         <Box sx={{ mt: 1 }}>
                                             <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
                                             <Chip label={`Season ID: ${race.seasonId}`} size="small" />

@@ -89,48 +89,52 @@ class IracingApi {
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
-            let seasonsData = await this.getData('series/seasons', { include_series: true });
             
-            console.log('Initial API response:', JSON.stringify(seasonsData, null, 2));
+            // Get the current time in ISO format
+            const currentTime = new Date().toISOString();
     
-            if (seasonsData.link) {
-                console.log('Fetching data from link:', seasonsData.link);
-                const response = await axios.get(seasonsData.link);
-                seasonsData = response.data;
-                console.log('Data fetched from link:', JSON.stringify(seasonsData, null, 2));
+            // Fetch race guide data
+            let raceGuideData = await this.getData('season/race_guide', {
+                from: currentTime,
+                include_end_after_from: true
+            });
+    
+            console.log('Initial API response:', JSON.stringify(raceGuideData, null, 2));
+    
+            if (raceGuideData.link) {
+                console.log('Fetching data from link:', raceGuideData.link);
+                const response = await axios.get(raceGuideData.link);
+                raceGuideData = response.data;
+                console.log('Data fetched from link:', JSON.stringify(raceGuideData, null, 2));
             }
-            
-            if (!Array.isArray(seasonsData)) {
-                console.error('Seasons data is not an array:', seasonsData);
+    
+            if (!Array.isArray(raceGuideData.sessions)) {
+                console.error('Race guide data is not an array:', raceGuideData);
                 return { races: [], totalCount: 0, page: page, pageSize: pageSize };
             }
     
-            console.log(`Total seasons: ${seasonsData.length}`);
+            console.log(`Total sessions: ${raceGuideData.sessions.length}`);
     
-            const officialSeries = seasonsData.filter(season => season.official);
-            console.log(`Official series: ${officialSeries.length}`);
+            const officialRaces = raceGuideData.sessions.filter(session => session.official);
+            console.log(`Official races: ${officialRaces.length}`);
     
-            const transformedRaces = officialSeries.flatMap(season => 
-                (season.schedules || []).map(schedule => {
-                    const raceState = this.getRaceState(schedule);
-                    return {
-                        name: season.season_name,
-                        kind: this.getKindFromCategory(season.category_id),
-                        class: this.mapLicenseLevelToClass(season.license_group),
-                        startTime: schedule.start_date,
-                        state: raceState,
-                        sessionMinutes: schedule.race_time_descriptors?.[0]?.session_minutes,
-                        trackName: schedule.track?.track_name,
-                        trackConfig: schedule.track?.config_name,
-                        carNames: (season.car_classes || []).map(cc => cc.name).join(', '),
-                        seriesId: season.series_id,
-                        seasonId: season.season_id,
-                        registeredDrivers: schedule.registered_drivers || 0
-                    };
-                })
-            );
+            const transformedRaces = officialRaces.map(race => ({
+                name: race.series_name,
+                kind: this.getKindFromCategory(race.category_id),
+                class: this.mapLicenseLevelToClass(race.license_group),
+                startTime: race.start_time,
+                state: this.getRaceState(race),
+                sessionMinutes: race.duration,
+                trackName: race.track.track_name,
+                trackConfig: race.track.config_name,
+                carNames: race.car_classes.map(cc => cc.name).join(', '),
+                seriesId: race.series_id,
+                seasonId: race.season_id,
+                registeredDrivers: race.registered_drivers,
+                maxDrivers: race.max_drivers
+            }));
     
-            console.log(`Total transformed races: ${transformedRaces.length}`);
+            console.log(`Transformed races: ${transformedRaces.length}`);
     
             const upcomingRaces = transformedRaces.filter(race => 
                 race.state === 'upcoming' || race.state === 'joinable'
@@ -159,10 +163,10 @@ class IracingApi {
         }
     }
     
-    getRaceState(schedule) {
+    getRaceState(race) {
         const currentTime = new Date();
-        const startDate = new Date(schedule.start_date);
-        const timeDifference = startDate - currentTime;
+        const startTime = new Date(race.start_time);
+        const timeDifference = startTime - currentTime;
         const minutesUntilStart = timeDifference / (1000 * 60);
     
         if (minutesUntilStart > 30) {
