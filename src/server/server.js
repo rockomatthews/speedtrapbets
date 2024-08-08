@@ -85,28 +85,7 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         console.log(`Retrieved ${officialRaces.races.length} official races`);
         console.log('Official races:', JSON.stringify(officialRaces, null, 2));
         
-        // Ensure the response has the expected structure
-        const formattedResponse = {
-            races: officialRaces.races.map(race => ({
-                name: race.name,
-                kind: race.kind,
-                licenseLevel: race.licenseLevel,
-                startTime: race.startTime,
-                trackName: race.trackName,
-                sessionMinutes: race.sessionMinutes,
-                carClass: race.carClass,
-                registeredDrivers: race.registeredDrivers,
-                maxDrivers: race.maxDrivers,
-                seriesId: race.seriesId,
-                seasonId: race.seasonId
-            })),
-            totalCount: officialRaces.totalCount,
-            page: officialRaces.page,
-            pageSize: officialRaces.pageSize
-        };
-
-        console.log('Sending formatted response:', JSON.stringify(formattedResponse, null, 2));
-        response.json(formattedResponse);
+        response.json(officialRaces);
     } catch (error) {
         console.error('Error fetching official races:', error);
         console.error('Stack trace:', error.stack);

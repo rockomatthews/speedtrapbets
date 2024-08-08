@@ -115,23 +115,20 @@ class IracingApi {
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
     
-            const officialRaces = raceGuideData.sessions.filter(session => session.official);
-            console.log(`Official races: ${officialRaces.length}`);
-    
-            const transformedRaces = officialRaces.map(race => ({
-                name: race.series_name,
+            const transformedRaces = raceGuideData.sessions.map(race => ({
+                name: race.series_name || 'Unknown Series',
                 kind: this.getKindFromCategory(race.category_id),
                 class: this.mapLicenseLevelToClass(race.license_group),
                 startTime: race.start_time,
                 state: this.getRaceState(race),
                 sessionMinutes: race.duration,
-                trackName: race.track.track_name,
-                trackConfig: race.track.config_name,
-                carNames: race.car_classes.map(cc => cc.name).join(', '),
+                trackName: race.track?.track_name || 'Unknown Track',
+                trackConfig: race.track?.config_name,
+                carNames: (race.car_classes || []).map(cc => cc.name).join(', '),
                 seriesId: race.series_id,
                 seasonId: race.season_id,
-                registeredDrivers: race.registered_drivers,
-                maxDrivers: race.max_drivers
+                registeredDrivers: race.entry_count,
+                maxDrivers: race.max_entry_count || 0
             }));
     
             console.log(`Transformed races: ${transformedRaces.length}`);
