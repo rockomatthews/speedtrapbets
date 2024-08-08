@@ -17,6 +17,8 @@ class IracingApi {
         this.getRaceState = this.getRaceState.bind(this);
         this.getKindFromCategory = this.getKindFromCategory.bind(this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
+        this.getSeriesData = this.getSeriesData.bind(this);
+        this.getSeasonData = this.getSeasonData.bind(this);
     }
 
     async login(username, password) {
@@ -86,14 +88,40 @@ class IracingApi {
         return data;
     }
 
+    async getSeriesData() {
+        try {
+            const seriesData = await this.getData('series/get');
+            if (seriesData.link) {
+                const response = await axios.get(seriesData.link);
+                return response.data;
+            }
+            return seriesData;
+        } catch (error) {
+            console.error('Error fetching series data:', error);
+            throw error;
+        }
+    }
+
+    async getSeasonData() {
+        try {
+            const seasonData = await this.getData('series/seasons');
+            if (seasonData.link) {
+                const response = await axios.get(seasonData.link);
+                return response.data;
+            }
+            return seasonData;
+        } catch (error) {
+            console.error('Error fetching season data:', error);
+            throw error;
+        }
+    }
+
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             
-            // Get the current time in ISO format
             const currentTime = new Date().toISOString();
     
-            // Fetch race guide data
             let raceGuideData = await this.getData('season/race_guide', {
                 from: currentTime,
                 include_end_after_from: true
@@ -114,21 +142,32 @@ class IracingApi {
             }
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
+
+            const seriesData = await this.getSeriesData();
+            const seasonData = await this.getSeasonData();
     
-            const transformedRaces = raceGuideData.sessions.map(race => ({
-                name: race.series_name || 'Unknown Series',
-                kind: this.getKindFromCategory(race.category_id),
-                class: this.mapLicenseLevelToClass(race.license_group),
-                startTime: race.start_time,
-                state: this.getRaceState(race),
-                sessionMinutes: race.duration,
-                trackName: race.track?.track_name || 'Unknown Track',
-                trackConfig: race.track?.config_name,
-                carNames: (race.car_classes || []).map(cc => cc.name).join(', '),
-                seriesId: race.series_id,
-                seasonId: race.season_id,
-                registeredDrivers: race.entry_count,
-                maxDrivers: race.max_entry_count || 0
+            const transformedRaces = await Promise.all(raceGuideData.sessions.map(async race => {
+                const series = seriesData.find(s => s.series_id === race.series_id);
+                const season = seasonData.find(s => s.season_id === race.season_id);
+
+                return {
+                    name: series ? series.series_name : race.series_name || 'Unknown Series',
+                    description: series ? series.series_short_name : 'Unknown',
+                    kind: this.getKindFromCategory(race.category_id),
+                    class: this.mapLicenseLevelToClass(race.license_group),
+                    startTime: race.start_time,
+                    state: this.getRaceState(race),
+                    sessionMinutes: race.duration,
+                    trackName: race.track?.track_name || 'Unknown Track',
+                    trackConfig: race.track?.config_name,
+                    carNames: (race.car_classes || []).map(cc => cc.name).join(', '),
+                    seriesId: race.series_id,
+                    seasonId: race.season_id,
+                    registeredDrivers: race.entry_count,
+                    maxDrivers: race.max_entry_count || 0,
+                    licenseGroup: season ? season.license_group : 'Unknown',
+                    categoryId: season ? season.category_id : 'Unknown'
+                };
             }));
     
             console.log(`Transformed races: ${transformedRaces.length}`);
@@ -139,7 +178,6 @@ class IracingApi {
     
             console.log(`Upcoming races: ${upcomingRaces.length}`);
     
-            // Sort races by start time
             upcomingRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
     
             const startIndex = (page - 1) * pageSize;

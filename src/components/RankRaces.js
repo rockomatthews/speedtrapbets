@@ -85,7 +85,7 @@ const RankRaces = () => {
 
     const filteredRaces = officialRaces.filter(race => 
         (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
-        (classFilter === 'all' || race.licenseLevel === classFilter)
+        (classFilter === 'all' || race.class === classFilter)
     );
 
     console.log('Filtered races:', filteredRaces);
@@ -137,12 +137,13 @@ const RankRaces = () => {
                                     <Card>
                                         <CardContent>
                                             <Typography variant="h6">{race.name}</Typography>
+                                            <Typography variant="subtitle1">{race.description}</Typography>
                                             <Typography>Kind: {race.kind}</Typography>
-                                            <Typography>License Level: {race.licenseLevel}</Typography>
-                                            <Typography>Track: {race.trackName}</Typography>
+                                            <Typography>License Level: {race.class}</Typography>
+                                            <Typography>Track: {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
                                             <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
                                             <Typography>Duration: {race.sessionMinutes} minutes</Typography>
-                                            <Typography>Car Class: {race.carClass}</Typography>
+                                            <Typography>Cars: {race.carNames}</Typography>
                                             <Typography>
                                                 Drivers: {race.registeredDrivers} / {race.maxDrivers}
                                             </Typography>
@@ -151,9 +152,12 @@ const RankRaces = () => {
                                                 value={(race.registeredDrivers / race.maxDrivers) * 100} 
                                                 sx={{ mt: 1, mb: 1 }}
                                             />
+                                            <Typography>State: {race.state}</Typography>
                                             <Box sx={{ mt: 1 }}>
                                                 <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
-                                                <Chip label={`Season ID: ${race.seasonId}`} size="small" />
+                                                <Chip label={`Season ID: ${race.seasonId}`} size="small" sx={{ mr: 1 }} />
+                                                <Chip label={`License Group: ${race.licenseGroup}`} size="small" sx={{ mr: 1 }} />
+                                                <Chip label={`Category ID: ${race.categoryId}`} size="small" />
                                             </Box>
                                         </CardContent>
                                     </Card>
