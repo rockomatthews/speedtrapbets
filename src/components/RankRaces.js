@@ -40,17 +40,22 @@ const RankRaces = () => {
             const data = await response.json();
             console.log('Parsed API data:', JSON.stringify(data, null, 2));
             
-            if (pageNum === 1) {
-                console.log('Setting initial races');
-                setOfficialRaces(data.races);
+            if (data.races && Array.isArray(data.races)) {
+                if (pageNum === 1) {
+                    console.log('Setting initial races');
+                    setOfficialRaces(data.races);
+                } else {
+                    console.log('Appending new races');
+                    setOfficialRaces(prevRaces => [...prevRaces, ...data.races]);
+                }
+                setTotalCount(data.totalCount);
+                setHasMore(data.races.length === 10 && officialRaces.length + data.races.length < data.totalCount);
+                setLastUpdated(new Date());
+                setError('');
             } else {
-                console.log('Appending new races');
-                setOfficialRaces(prevRaces => [...prevRaces, ...data.races]);
+                console.error('Received unexpected data structure:', data);
+                setError('Received unexpected data structure from the server');
             }
-            setTotalCount(data.totalCount);
-            setHasMore(data.races.length === 10 && officialRaces.length + data.races.length < data.totalCount);
-            setLastUpdated(new Date());
-            setError('');
         } catch (error) {
             console.error('Error fetching official races:', error);
             setError('Failed to fetch official races. Please try again later.');

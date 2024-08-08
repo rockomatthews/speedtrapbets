@@ -85,9 +85,28 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         console.log(`Retrieved ${officialRaces.races.length} official races`);
         console.log('Official races:', JSON.stringify(officialRaces, null, 2));
         
-        console.log('Sending response:', JSON.stringify(officialRaces, null, 2));
+        // Ensure the response has the expected structure
+        const formattedResponse = {
+            races: officialRaces.races.map(race => ({
+                name: race.name,
+                kind: race.kind,
+                licenseLevel: race.licenseLevel,
+                startTime: race.startTime,
+                trackName: race.trackName,
+                sessionMinutes: race.sessionMinutes,
+                carClass: race.carClass,
+                registeredDrivers: race.registeredDrivers,
+                maxDrivers: race.maxDrivers,
+                seriesId: race.seriesId,
+                seasonId: race.seasonId
+            })),
+            totalCount: officialRaces.totalCount,
+            page: officialRaces.page,
+            pageSize: officialRaces.pageSize
+        };
 
-        response.json(officialRaces);
+        console.log('Sending formatted response:', JSON.stringify(formattedResponse, null, 2));
+        response.json(formattedResponse);
     } catch (error) {
         console.error('Error fetching official races:', error);
         console.error('Stack trace:', error.stack);
@@ -97,17 +116,6 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
-});
-
-// Error handling middleware
-app.use((error, request, response, next) => {
-    console.error('Unhandled error:', error);
-    console.error('Stack trace:', error.stack);
-    response.status(500).json({
-        error: 'An unexpected error occurred',
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
 });
 
 const PORT = process.env.PORT || 3001;
