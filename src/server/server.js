@@ -85,6 +85,8 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         console.log(`Retrieved ${officialRaces.races.length} official races`);
         console.log('Official races:', JSON.stringify(officialRaces, null, 2));
         
+        console.log('Sending response:', JSON.stringify(officialRaces, null, 2));
+
         response.json(officialRaces);
     } catch (error) {
         console.error('Error fetching official races:', error);

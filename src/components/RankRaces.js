@@ -29,6 +29,7 @@ const RankRaces = () => {
     const fetchOfficialRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
         try {
+            console.log(`Fetching races for page ${pageNum}`);
             const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`);
             console.log('Full API Response:', response);
             
@@ -37,11 +38,13 @@ const RankRaces = () => {
             }
             
             const data = await response.json();
-            console.log('Parsed API data:', data);
+            console.log('Parsed API data:', JSON.stringify(data, null, 2));
             
             if (pageNum === 1) {
+                console.log('Setting initial races');
                 setOfficialRaces(data.races);
             } else {
+                console.log('Appending new races');
                 setOfficialRaces(prevRaces => [...prevRaces, ...data.races]);
             }
             setTotalCount(data.totalCount);
@@ -79,6 +82,8 @@ const RankRaces = () => {
         (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
         (classFilter === 'all' || race.licenseLevel === classFilter)
     );
+
+    console.log('Filtered races:', filteredRaces);
 
     return (
         <Box>
@@ -120,33 +125,36 @@ const RankRaces = () => {
                         Showing {filteredRaces.length} of {totalCount} total upcoming races
                     </Typography>
                     <Grid container spacing={2}>
-                        {filteredRaces.map((race, index) => (
-                            <Grid item xs={12} sm={6} md={4} key={index}>
-                                <Card>
-                                    <CardContent>
-                                        <Typography variant="h6">{race.name}</Typography>
-                                        <Typography>Kind: {race.kind}</Typography>
-                                        <Typography>License Level: {race.licenseLevel}</Typography>
-                                        <Typography>Track: {race.trackName}</Typography>
-                                        <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
-                                        <Typography>Duration: {race.sessionMinutes} minutes</Typography>
-                                        <Typography>Car Class: {race.carClass}</Typography>
-                                        <Typography>
-                                            Drivers: {race.registeredDrivers} / {race.maxDrivers}
-                                        </Typography>
-                                        <LinearProgress 
-                                            variant="determinate" 
-                                            value={(race.registeredDrivers / race.maxDrivers) * 100} 
-                                            sx={{ mt: 1, mb: 1 }}
-                                        />
-                                        <Box sx={{ mt: 1 }}>
-                                            <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
-                                            <Chip label={`Season ID: ${race.seasonId}`} size="small" />
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        ))}
+                        {filteredRaces.map((race, index) => {
+                            console.log('Rendering race:', race);
+                            return (
+                                <Grid item xs={12} sm={6} md={4} key={index}>
+                                    <Card>
+                                        <CardContent>
+                                            <Typography variant="h6">{race.name}</Typography>
+                                            <Typography>Kind: {race.kind}</Typography>
+                                            <Typography>License Level: {race.licenseLevel}</Typography>
+                                            <Typography>Track: {race.trackName}</Typography>
+                                            <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
+                                            <Typography>Duration: {race.sessionMinutes} minutes</Typography>
+                                            <Typography>Car Class: {race.carClass}</Typography>
+                                            <Typography>
+                                                Drivers: {race.registeredDrivers} / {race.maxDrivers}
+                                            </Typography>
+                                            <LinearProgress 
+                                                variant="determinate" 
+                                                value={(race.registeredDrivers / race.maxDrivers) * 100} 
+                                                sx={{ mt: 1, mb: 1 }}
+                                            />
+                                            <Box sx={{ mt: 1 }}>
+                                                <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
+                                                <Chip label={`Season ID: ${race.seasonId}`} size="small" />
+                                            </Box>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            );
+                        })}
                     </Grid>
                     {hasMore && (
                         <Button 
