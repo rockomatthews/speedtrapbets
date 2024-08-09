@@ -10,9 +10,9 @@ import {
     Card, 
     CardContent, 
     Grid, 
-    Chip, 
     Button,
-    LinearProgress 
+    Divider,
+    LinearProgress
 } from '@mui/material';
 
 const RankRaces = () => {
@@ -41,15 +41,23 @@ const RankRaces = () => {
             console.log('Parsed API data:', JSON.stringify(data, null, 2));
             
             if (data.races && Array.isArray(data.races)) {
+                const formattedRaces = data.races.map(race => ({
+                    ...race,
+                    licenseLevel: mapLicenseGroupToLevel(race.licenseGroup),
+                    track: race.trackName + (race.trackConfig ? ` (${race.trackConfig})` : ''),
+                    cars: race.carNames || 'Unknown',
+                    drivers: `${race.registeredDrivers} / ${race.maxDrivers}`
+                }));
+
                 if (pageNum === 1) {
                     console.log('Setting initial races');
-                    setOfficialRaces(data.races);
+                    setOfficialRaces(formattedRaces);
                 } else {
                     console.log('Appending new races');
-                    setOfficialRaces(prevRaces => [...prevRaces, ...data.races]);
+                    setOfficialRaces(prevRaces => [...prevRaces, ...formattedRaces]);
                 }
                 setTotalCount(data.totalCount);
-                setHasMore(data.races.length === 10 && officialRaces.length + data.races.length < data.totalCount);
+                setHasMore(formattedRaces.length === 10 && officialRaces.length + formattedRaces.length < data.totalCount);
                 setLastUpdated(new Date());
                 setError('');
             } else {
@@ -85,8 +93,19 @@ const RankRaces = () => {
 
     const filteredRaces = officialRaces.filter(race => 
         (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
-        (classFilter === 'all' || race.class === classFilter)
+        (classFilter === 'all' || race.licenseLevel === classFilter)
     );
+
+    const mapLicenseGroupToLevel = (licenseGroup) => {
+        const licenseMap = {
+            1: 'Rookie',
+            2: 'D',
+            3: 'C',
+            4: 'B',
+            5: 'A'
+        };
+        return licenseMap[licenseGroup] || 'Unknown';
+    };
 
     console.log('Filtered races:', filteredRaces);
 
@@ -108,7 +127,7 @@ const RankRaces = () => {
                 </FormControl>
 
                 <FormControl sx={{ minWidth: 120 }}>
-                    <InputLabel>Class</InputLabel>
+                    <InputLabel>License Level</InputLabel>
                     <Select value={classFilter} onChange={handleClassFilterChange}>
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="Rookie">Rookie</MenuItem>
@@ -130,40 +149,28 @@ const RankRaces = () => {
                         Showing {filteredRaces.length} of {totalCount} total upcoming races
                     </Typography>
                     <Grid container spacing={2}>
-                        {filteredRaces.map((race, index) => {
-                            console.log('Rendering race:', race);
-                            return (
-                                <Grid item xs={12} sm={6} md={4} key={index}>
-                                    <Card>
-                                        <CardContent>
-                                            <Typography variant="h6">{race.name}</Typography>
-                                            <Typography variant="subtitle1">{race.description}</Typography>
-                                            <Typography>Kind: {race.kind}</Typography>
-                                            <Typography>License Level: {race.class}</Typography>
-                                            <Typography>Track: {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
-                                            <Typography>Start Time: {new Date(race.startTime).toLocaleString()}</Typography>
-                                            <Typography>Duration: {race.sessionMinutes} minutes</Typography>
-                                            <Typography>Cars: {race.carNames}</Typography>
-                                            <Typography>
-                                                Drivers: {race.registeredDrivers} / {race.maxDrivers}
-                                            </Typography>
-                                            <LinearProgress 
-                                                variant="determinate" 
-                                                value={(race.registeredDrivers / race.maxDrivers) * 100} 
-                                                sx={{ mt: 1, mb: 1 }}
-                                            />
-                                            <Typography>State: {race.state}</Typography>
-                                            <Box sx={{ mt: 1 }}>
-                                                <Chip label={`Series ID: ${race.seriesId}`} size="small" sx={{ mr: 1 }} />
-                                                <Chip label={`Season ID: ${race.seasonId}`} size="small" sx={{ mr: 1 }} />
-                                                <Chip label={`License Group: ${race.licenseGroup}`} size="small" sx={{ mr: 1 }} />
-                                                <Chip label={`Category ID: ${race.categoryId}`} size="small" />
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            );
-                        })}
+                        {filteredRaces.map((race, index) => (
+                            <Grid item xs={12} key={index}>
+                                <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+                                    <CardContent>
+                                        <Typography variant="h6" gutterBottom>{race.name}</Typography>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Typography><strong>License Level:</strong> {race.licenseLevel}</Typography>
+                                        <Typography><strong>Track:</strong> {race.track}</Typography>
+                                        <Typography><strong>Cars:</strong> {race.cars}</Typography>
+                                        <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
+                                        <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
+                                        <Typography><strong>State:</strong> {race.state}</Typography>
+                                        <Typography><strong>Drivers:</strong> {race.drivers}</Typography>
+                                        <LinearProgress 
+                                            variant="determinate" 
+                                            value={(parseInt(race.drivers.split('/')[0]) / parseInt(race.drivers.split('/')[1])) * 100} 
+                                            sx={{ mt: 1, mb: 1 }}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        ))}
                     </Grid>
                     {hasMore && (
                         <Button 
