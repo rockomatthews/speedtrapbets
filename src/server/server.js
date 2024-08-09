@@ -4,7 +4,11 @@ const IracingApi = require('./iRacingApi');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: ['https://speed-trap-bets-44bx6tzqh-edward-teachs-projects.vercel.app/', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
 
 const iracingApi = new IracingApi();
 let isAuthenticated = false;
@@ -76,26 +80,27 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
 });
 
 app.get('/api/official-races', checkAuth, async (request, response) => {
+    console.log('Received request for /api/official-races');
     try {
-        const page = parseInt(request.query.page) || 1;
-        const pageSize = parseInt(request.query.pageSize) || 10;
-        
-        console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
-        const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
-        console.log(`Retrieved ${officialRaces.races.length} official races`);
-        console.log('Official races:', JSON.stringify(officialRaces, null, 2));
-        
-        response.json(officialRaces);
+      const page = parseInt(request.query.page) || 1;
+      const pageSize = parseInt(request.query.pageSize) || 10;
+      
+      console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
+      const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
+      console.log(`Retrieved ${officialRaces.races.length} official races`);
+      
+      response.json(officialRaces);
     } catch (error) {
-        console.error('Error fetching official races:', error);
-        console.error('Stack trace:', error.stack);
-        response.status(500).json({
-            error: 'An error occurred while fetching official races',
-            details: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+      console.error('Error in /api/official-races:', error);
+      console.error('Stack trace:', error.stack);
+      response.status(500).json({
+        error: 'An error occurred while fetching official races',
+        details: error.message,
+        stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+      });
     }
-});
+  });
+  
 
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
