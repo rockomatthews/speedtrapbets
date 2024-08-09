@@ -4,11 +4,17 @@ const IracingApi = require('./iRacingApi');
 require('dotenv').config();
 
 const app = express();
+
+// CORS configuration
 app.use(cors({
-    origin: ['https://speed-trap-bets-44bx6tzqh-edward-teachs-projects.vercel.app/', 'http://localhost:3000'],
+    origin: [
+        'https://speed-trap-bets-44bx6tzqh-edward-teachs-projects.vercel.app',
+        'http://localhost:3000',
+        'https://www.speedtrapbets.com'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
-  }));
+}));
 
 const iracingApi = new IracingApi();
 let isAuthenticated = false;
@@ -82,32 +88,32 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
 app.get('/api/official-races', checkAuth, async (request, response) => {
     console.log('Received request for /api/official-races');
     try {
-      const page = parseInt(request.query.page) || 1;
-      const pageSize = parseInt(request.query.pageSize) || 10;
-      
-      console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
-      const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
-      console.log(`Retrieved ${officialRaces.races.length} official races`);
-      
-      response.json(officialRaces);
+        const page = parseInt(request.query.page) || 1;
+        const pageSize = parseInt(request.query.pageSize) || 10;
+        
+        console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
+        const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
+        console.log(`Retrieved ${officialRaces.races.length} official races`);
+        
+        response.json(officialRaces);
     } catch (error) {
-      console.error('Error in /api/official-races:', error);
-      console.error('Stack trace:', error.stack);
-      response.status(500).json({
-        error: 'An error occurred while fetching official races',
-        details: error.message,
-        stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
-      });
+        console.error('Error in /api/official-races:', error);
+        console.error('Stack trace:', error.stack);
+        response.status(500).json({
+            error: 'An error occurred while fetching official races',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+        });
     }
-  });
-  
+});
 
+// Server creation (for both local and production)
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-// Graceful shutdown
+// Graceful shutdown handler
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
@@ -118,7 +124,10 @@ process.on('SIGTERM', () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // Application specific logging, throwing an error, or other logic here
+    // Log the stack trace
+    console.error('Stack trace:', reason.stack);
+    // Optionally, you can terminate the process if an unhandled rejection occurs
+    // process.exit(1);
 });
 
 module.exports = app;

@@ -34,7 +34,7 @@ const RankRaces = () => {
             console.log('Full API Response:', response);
             
             if (!response.ok) {
-                throw new Error('Failed to fetch official races');
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
@@ -58,7 +58,7 @@ const RankRaces = () => {
             }
         } catch (error) {
             console.error('Error fetching official races:', error);
-            setError('Failed to fetch official races. Please try again later.');
+            setError(`Failed to fetch official races: ${error.message}`);
         } finally {
             setIsLoadingRaces(false);
         }
