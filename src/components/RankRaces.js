@@ -92,14 +92,15 @@ const RankRaces = () => {
 
     const filteredRaces = officialRaces.filter(race => 
         (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
-        (classFilter === 'all' || race.licenseLevel === classFilter)
+        (classFilter === 'all' || race.licenseLevel === classFilter) &&
+        race.state === 'qualifying'
     );
 
     console.log('Filtered races:', filteredRaces);
 
     return (
         <Box>
-            <Typography variant="h5" component="h2" gutterBottom>Upcoming Official Races</Typography>
+            <Typography variant="h5" component="h2" gutterBottom>Qualifying Official Races</Typography>
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
@@ -134,7 +135,7 @@ const RankRaces = () => {
             ) : filteredRaces.length > 0 ? (
                 <>
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                        Showing {filteredRaces.length} of {totalCount} total upcoming races
+                        Showing {filteredRaces.length} of {totalCount} total qualifying races
                     </Typography>
                     <Grid container spacing={2}>
                         {filteredRaces.map((race, index) => (
@@ -150,6 +151,8 @@ const RankRaces = () => {
                                         <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
                                         <Typography><strong>State:</strong> {race.state}</Typography>
                                         <Typography><strong>Drivers:</strong> {race.drivers}</Typography>
+                                        <Typography><strong>Series ID:</strong> {race.seriesId}</Typography>
+                                        <Typography><strong>Season ID:</strong> {race.seasonId}</Typography>
                                     </CardContent>
                                 </Card>
                             </Grid>
@@ -166,7 +169,7 @@ const RankRaces = () => {
                     )}
                 </>
             ) : (
-                <Typography>No upcoming races found matching the current filters.</Typography>
+                <Typography>No qualifying races found matching the current filters.</Typography>
             )}
 
             {lastUpdated && (

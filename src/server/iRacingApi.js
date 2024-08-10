@@ -172,7 +172,7 @@ class IracingApi {
             }
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
-
+    
             const seriesData = await this.getSeriesData();
             const seasonData = await this.getSeasonData();
     
@@ -184,19 +184,20 @@ class IracingApi {
                 if (race.track && race.track.track_id) {
                     trackDetails = await this.getTrackData(race.track.track_id);
                 }
-
+    
                 let carNames = 'Unknown';
-                if (race.car_class && race.car_class.cars_in_class) {
-                    const carDetailsPromises = race.car_class.cars_in_class.map(car => this.getCarData(car.car_id));
-                    const carDetailsArray = await Promise.all(carDetailsPromises);
-                    carNames = carDetailsArray.map(car => car.car_name || 'Unknown Car').join(', ');
+                if (series && series.car_class_id) {
+                    const carClassDetails = await this.getCarClassData(series.car_class_id);
+                    if (carClassDetails && carClassDetails.cars) {
+                        carNames = carClassDetails.cars.map(car => car.name).join(', ');
+                    }
                 }
-
+    
                 return {
                     name: series ? series.series_name : race.series_name || 'Unknown Series',
                     description: series ? series.series_short_name : 'Unknown',
                     kind: this.getKindFromCategory(race.category_id),
-                    class: this.mapLicenseLevelToClass(race.license_group),
+                    class: this.mapLicenseLevelToClass(season ? season.license_group : null),
                     startTime: race.start_time,
                     state: this.getRaceState(race),
                     sessionMinutes: race.duration,
@@ -214,22 +215,22 @@ class IracingApi {
     
             console.log(`Transformed races: ${transformedRaces.length}`);
     
-            const upcomingRaces = transformedRaces.filter(race => 
-                race.state === 'upcoming' || race.state === 'joinable'
+            const qualifyingRaces = transformedRaces.filter(race => 
+                race.state === 'qualifying'
             );
     
-            console.log(`Upcoming races: ${upcomingRaces.length}`);
+            console.log(`Qualifying races: ${qualifyingRaces.length}`);
     
-            upcomingRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+            qualifyingRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
     
             const startIndex = (page - 1) * pageSize;
-            const paginatedRaces = upcomingRaces.slice(startIndex, startIndex + pageSize);
+            const paginatedRaces = qualifyingRaces.slice(startIndex, startIndex + pageSize);
     
             console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
     
             return {
                 races: paginatedRaces,
-                totalCount: upcomingRaces.length,
+                totalCount: qualifyingRaces.length,
                 page: page,
                 pageSize: pageSize
             };
@@ -240,18 +241,39 @@ class IracingApi {
         }
     }
     
+    // New method to get car class data
+    async getCarClassData(carClassId) {
+        try {
+            const carClassData = await this.getData('carclass/get', { car_class_id: carClassId });
+            if (carClassData.link) {
+                const response = await axios.get(carClassData.link);
+                return response.data;
+            }
+            return carClassData;
+        } catch (error) {
+            console.error('Error fetching car class data:', error);
+            throw error;
+        }
+    }
+    
+    // Updated getRaceState method
     getRaceState(race) {
         const currentTime = new Date();
         const startTime = new Date(race.start_time);
-        const timeDifference = startTime - currentTime;
-        const minutesUntilStart = timeDifference / (1000 * 60);
-    
-        if (minutesUntilStart > 30) {
+        const endTime = new Date(race.end_time);
+        
+        if (currentTime < startTime) {
             return 'upcoming';
-        } else if (minutesUntilStart <= 30 && minutesUntilStart > -5) {
-            return 'joinable';
+        } else if (currentTime >= startTime && currentTime < endTime) {
+            // Assuming the first 10 minutes of the session is for qualifying
+            const qualifyingEndTime = new Date(startTime.getTime() + 10 * 60000);
+            if (currentTime < qualifyingEndTime) {
+                return 'qualifying';
+            } else {
+                return 'racing';
+            }
         } else {
-            return 'in_progress';
+            return 'completed';
         }
     }
 
