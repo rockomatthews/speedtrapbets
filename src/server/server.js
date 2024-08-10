@@ -5,8 +5,16 @@ const IracingApi = require('./iRacingApi');
 const NodeCache = require('node-cache');
 const fs = require('fs');
 const path = require('path');
-const rateLimit = require("express-rate-limit");
 require('dotenv').config();
+
+// Attempt to require express-rate-limit, but handle the case where it's not installed
+let rateLimit;
+try {
+    rateLimit = require("express-rate-limit");
+    console.log('express-rate-limit module loaded successfully.');
+} catch (error) {
+    console.warn("express-rate-limit module not found. Rate limiting will be disabled.");
+}
 
 // Initialize Express application
 const app = express();
@@ -95,16 +103,20 @@ app.use((req, res, next) => {
     next();
 });
 
-// Rate limiting configuration
-const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    message: "Too many requests from this IP, please try again after 15 minutes"
-});
+// Apply rate limiting if the module is available
+if (rateLimit) {
+    const apiLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 100, // limit each IP to 100 requests per windowMs
+        message: "Too many requests from this IP, please try again after 15 minutes"
+    });
 
-// Apply rate limiting to all requests
-app.use(apiLimiter);
-console.log('Rate limiting has been applied to all requests.');
+    // Apply rate limiting to all requests
+    app.use(apiLimiter);
+    console.log('Rate limiting has been applied to all requests.');
+} else {
+    console.log('Rate limiting is disabled due to missing express-rate-limit module.');
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
