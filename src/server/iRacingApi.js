@@ -1,5 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
+const NodeCache = require('node-cache');
+const { RateLimiter } = require('limiter');
 
 class IracingApi {
     constructor() {
@@ -8,6 +10,8 @@ class IracingApi {
             baseURL: this.baseUrl,
             withCredentials: true,
         });
+        this.cache = new NodeCache({ stdTTL: 300 }); // 5 minutes cache
+        this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
 
         this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
@@ -57,8 +61,13 @@ class IracingApi {
     }
 
     async getData(endpoint, params = {}, retries = 3) {
+        const cacheKey = `${endpoint}-${JSON.stringify(params)}`;
+        const cachedData = this.cache.get(cacheKey);
+        if (cachedData) return cachedData;
+
         for (let i = 0; i < retries; i++) {
             try {
+                await this.rateLimiter.removeTokens(1);
                 if (!this.authCookie) {
                     throw new Error('Not authenticated. Please login first.');
                 }
@@ -70,14 +79,14 @@ class IracingApi {
                     }
                 });
                 console.log('API Response:', response.data);
+                this.cache.set(cacheKey, response.data);
                 return response.data;
             } catch (error) {
                 if (error.response && error.response.status === 429) {
-                    // Rate limited, wait for a bit before retrying
-                    const waitTime = 1000 * (i + 1);
-                    console.log(`Rate limited. Waiting for ${waitTime}ms before retry ${i + 1}`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                } else {
+                    const delay = Math.pow(2, i) * 1000;
+                    console.log(`Rate limited. Waiting for ${delay}ms before retry ${i + 1}`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else if (i === retries - 1) {
                     console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
                     throw error;
                 }

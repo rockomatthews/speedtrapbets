@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const IracingApi = require('./iRacingApi');
+const NodeCache = require('node-cache');
 require('dotenv').config();
 
 const app = express();
+const cache = new NodeCache({ stdTTL: 30 }); // 30 seconds cache
 
 // CORS configuration
 app.use(cors({
@@ -91,16 +93,45 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         const page = parseInt(request.query.page) || 1;
         const pageSize = parseInt(request.query.pageSize) || 10;
         
+        const cacheKey = `official-races-${page}-${pageSize}`;
+        const cachedData = cache.get(cacheKey);
+        
+        if (cachedData) {
+            console.log('Returning cached data for official races');
+            return response.json(cachedData);
+        }
+        
         console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
         const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
         console.log(`Retrieved ${officialRaces.races.length} official races`);
         
+        cache.set(cacheKey, officialRaces);
         response.json(officialRaces);
     } catch (error) {
         console.error('Error in /api/official-races:', error);
         console.error('Stack trace:', error.stack);
         response.status(500).json({
             error: 'An error occurred while fetching official races',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+        });
+    }
+});
+
+// Add a new endpoint to force refresh the cache
+app.get('/api/refresh-races', checkAuth, async (request, response) => {
+    try {
+        const page = 1;
+        const pageSize = 10;
+        console.log('Forcing refresh of official races data');
+        const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
+        const cacheKey = `official-races-${page}-${pageSize}`;
+        cache.set(cacheKey, officialRaces);
+        response.json({ success: true, message: 'Cache refreshed successfully' });
+    } catch (error) {
+        console.error('Error refreshing races cache:', error);
+        response.status(500).json({
+            error: 'An error occurred while refreshing races cache',
             details: error.message,
             stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
         });

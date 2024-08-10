@@ -61,6 +61,10 @@ const RankRaces = () => {
 
     useEffect(() => {
         fetchOfficialRaces(1);
+        const interval = setInterval(() => {
+            fetchOfficialRaces(1);
+        }, 30000); // Refresh every 30 seconds
+        return () => clearInterval(interval);
     }, [fetchOfficialRaces]);
 
     const loadMore = () => {
