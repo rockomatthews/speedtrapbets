@@ -171,22 +171,12 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         
         console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
         
-        const cacheKey = `official-races-${page}-${pageSize}`;
-        const cachedData = cache.get(cacheKey);
-        
-        if (cachedData) {
-            console.log('Returning cached official races data.');
-            return response.json(cachedData);
-        }
-        
-        console.log('Fetching fresh official races data from iRacing API.');
         const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
         
-        console.log('Caching and returning official races data.');
-        cache.set(cacheKey, officialRaces);
+        console.log('Returning official races data');
         response.json(officialRaces);
     } catch (error) {
-        console.error('Error occurred while fetching official races:', error);
+        console.error('Error in /api/official-races:', error);
         logError(error);
         response.status(500).json({
             error: 'An error occurred while fetching official races',

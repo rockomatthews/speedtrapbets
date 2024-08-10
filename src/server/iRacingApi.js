@@ -5,22 +5,14 @@ const { RateLimiter } = require('limiter');
 
 class IracingApi {
     constructor() {
-        // Set up the base URL for the iRacing API
         this.baseUrl = 'https://members-ng.iracing.com/';
-        
-        // Create an axios instance with default configuration
         this.session = axios.create({
             baseURL: this.baseUrl,
             withCredentials: true,
         });
-        
-        // Initialize cache with 5 minutes TTL and check every 60 seconds
         this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
-        
-        // Set up rate limiter: 5 requests per second
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
 
-        // Bind all methods to ensure correct 'this' context
         this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
@@ -29,10 +21,6 @@ class IracingApi {
         this.getRaceState = this.getRaceState.bind(this);
         this.getKindFromCategory = this.getKindFromCategory.bind(this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
-        this.getSeriesData = this.getSeriesData.bind(this);
-        this.getSeasonData = this.getSeasonData.bind(this);
-        this.getTrackDetails = this.getTrackDetails.bind(this);
-        this.getCarDetails = this.getCarDetails.bind(this);
         this.paginateRaces = this.paginateRaces.bind(this);
     }
 
@@ -125,111 +113,57 @@ class IracingApi {
         return data;
     }
 
-    async getSeriesData() {
-        try {
-            console.log('Fetching series data');
-            const seriesData = await this.getData('series/get');
-            if (seriesData.link) {
-                console.log('Fetching detailed series data from provided link');
-                const response = await axios.get(seriesData.link);
-                return response.data;
-            }
-            return seriesData;
-        } catch (error) {
-            console.error('Error fetching series data:', error);
-            throw error;
-        }
-    }
-
-    async getSeasonData() {
-        try {
-            console.log('Fetching season data');
-            const seasonData = await this.getData('series/seasons');
-            if (seasonData.link) {
-                console.log('Fetching detailed season data from provided link');
-                const response = await axios.get(seasonData.link);
-                return response.data;
-            }
-            return seasonData;
-        } catch (error) {
-            console.error('Error fetching season data:', error);
-            throw error;
-        }
-    }
-
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             
             const currentTime = new Date().toISOString();
-            const cacheKey = `official-races-${currentTime.slice(0, 16)}`; // Cache key with minute precision
+            const cacheKey = `official-races-${currentTime.slice(0, 16)}`;
             const cachedData = this.cache.get(cacheKey);
             
             if (cachedData) {
                 console.log('Returning cached official races data');
                 return this.paginateRaces(cachedData, page, pageSize);
             }
-    
+
             let raceGuideData = await this.getData('season/race_guide', {
                 from: currentTime,
                 include_end_after_from: true
             });
-    
+
             if (raceGuideData.link) {
-                console.log('Fetching detailed race guide data from provided link');
                 const response = await axios.get(raceGuideData.link);
                 raceGuideData = response.data;
             }
-    
+
             if (!Array.isArray(raceGuideData.sessions)) {
                 throw new Error('Invalid race guide data structure');
             }
-    
+
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
-    
-            const seriesData = await this.getSeriesData();
-            const seasonData = await this.getSeasonData();
-    
-            const relevantRaces = await Promise.all(raceGuideData.sessions.map(async race => {
-                const series = seriesData.find(s => s.series_id === race.series_id);
-                const season = seasonData.find(s => s.season_id === race.season_id);
-                
-                const trackDetails = await this.getTrackDetails(race.series_id, race.season_id);
-                const carDetails = await this.getCarDetails(race.series_id, race.season_id);
-    
-                const state = this.getRaceState(race);
-                if (!['practice', 'qualifying'].includes(state)) {
-                    return null;
-                }
-    
+
+            const relevantRaces = raceGuideData.sessions.map(race => {
                 return {
-                    name: series ? series.series_name : race.series_name || 'Unknown Series',
-                    description: series ? series.series_short_name : 'Unknown',
-                    kind: this.getKindFromCategory(race.category_id),
-                    class: this.mapLicenseLevelToClass(season ? season.license_group : null),
+                    name: race.series_name || 'Unknown Series',
+                    description: race.series_short_name || 'Unknown',
                     startTime: race.start_time,
-                    state: state,
+                    state: this.getRaceState(race),
                     sessionMinutes: race.duration,
-                    trackName: trackDetails.trackName,
-                    trackConfig: trackDetails.trackConfig,
-                    carNames: carDetails.join(', '),
-                    seriesId: race.series_id,
-                    seasonId: race.season_id,
                     registeredDrivers: race.entry_count,
                     maxDrivers: race.max_entry_count || 0,
-                    licenseGroup: season ? season.license_group : 'Unknown',
-                    categoryId: season ? season.category_id : 'Unknown'
+                    seriesId: race.series_id,
+                    seasonId: race.season_id,
+                    categoryId: race.category_id
                 };
-            }));
-    
-            const filteredRaces = relevantRaces.filter(race => race !== null);
-            console.log(`Relevant races: ${filteredRaces.length}`);
-    
-            filteredRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-    
-            this.cache.set(cacheKey, filteredRaces);
-    
-            return this.paginateRaces(filteredRaces, page, pageSize);
+            });
+
+            console.log(`Relevant races: ${relevantRaces.length}`);
+
+            relevantRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+            this.cache.set(cacheKey, relevantRaces);
+
+            return this.paginateRaces(relevantRaces, page, pageSize);
         } catch (error) {
             console.error('Error fetching official races:', error);
             throw error;
@@ -251,8 +185,8 @@ class IracingApi {
     getRaceState(race) {
         const currentTime = new Date();
         const startTime = new Date(race.start_time);
-        const practiceEndTime = new Date(startTime.getTime() + 30 * 60000); // 30 minutes after start
-        const qualifyingEndTime = new Date(practiceEndTime.getTime() + 10 * 60000); // 10 minutes qualifying
+        const practiceEndTime = new Date(startTime.getTime() + 30 * 60000);
+        const qualifyingEndTime = new Date(practiceEndTime.getTime() + 10 * 60000);
         
         if (currentTime < startTime) {
             return 'upcoming';
@@ -262,79 +196,6 @@ class IracingApi {
             return 'qualifying';
         } else {
             return 'in_progress';
-        }
-    }
-
-    async getTrackDetails(seriesId, seasonId) {
-        try {
-            const cacheKey = `track-details-${seriesId}-${seasonId}`;
-            const cachedData = this.cache.get(cacheKey);
-            if (cachedData) return cachedData;
-
-            console.log(`Fetching track details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
-            const seasonData = await this.getData('series/seasons', { series_id: seriesId });
-            if (seasonData.link) {
-                const response = await axios.get(seasonData.link);
-                const season = response.data.find(s => s.season_id === seasonId);
-                if (season && season.track) {
-                    const trackData = await this.getData('track/get', { track_id: season.track.track_id });
-                    if (trackData.link) {
-                        const trackResponse = await axios.get(trackData.link);
-                        const trackDetails = {
-                            trackName: trackResponse.data.track_name,
-                            trackConfig: trackResponse.data.config_name
-                        };
-                        this.cache.set(cacheKey, trackDetails);
-                        return trackDetails;
-                    }
-                }
-            }
-            console.log('Track details not found, returning default values');
-            return { trackName: 'Unknown Track', trackConfig: '' };
-        } catch (error) {
-            console.error('Error fetching track details:', error);
-            return { trackName: 'Unknown Track', trackConfig: '' };
-        }
-    }
-
-    async getCarDetails(seriesId, seasonId) {
-        try {
-            const cacheKey = `car-details-${seriesId}-${seasonId}`;
-            const cachedData = this.cache.get(cacheKey);
-            if (cachedData) return cachedData;
-
-            console.log(`Fetching car details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
-            const seasonData = await this.getData('series/seasons', { series_id: seriesId });
-            if (seasonData.link) {
-                const response = await axios.get(seasonData.link);
-                const season = response.data.find(s => s.season_id === seasonId);
-                if (season && season.car_class_id) {
-                    const carClassData = await this.getData('carclass/get', { car_class_id: season.car_class_id });
-                    if (carClassData.link) {
-                        const carClassResponse = await axios.get(carClassData.link);
-                        if (carClassResponse.data.cars_in_class) {
-                            const carPromises = carClassResponse.data.cars_in_class.map(car => 
-                                this.getData('car/get', { car_id: car.car_id })
-                            );
-                            const carResponses = await Promise.all(carPromises);
-                            const carNames = await Promise.all(carResponses.map(async carData => {
-                                if (carData.link) {
-                                    const carResponse = await axios.get(carData.link);
-                                    return carResponse.data.car_name;
-                                }
-                                return 'Unknown Car';
-                            }));
-                            this.cache.set(cacheKey, carNames);
-                            return carNames;
-                        }
-                    }
-                }
-            }
-            console.log('Car details not found, returning default values');
-            return ['Unknown Car'];
-        } catch (error) {
-            console.error('Error fetching car details:', error);
-            return ['Unknown Car'];
         }
     }
 
