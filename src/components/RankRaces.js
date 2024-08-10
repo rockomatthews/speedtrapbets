@@ -11,8 +11,7 @@ import {
     CardContent, 
     Grid, 
     Button,
-    Divider,
-    Chip
+    Divider
 } from '@mui/material';
 
 const RankRaces = () => {
@@ -149,8 +148,9 @@ const RankRaces = () => {
                                         <Typography><strong>Cars:</strong> {race.carNames}</Typography>
                                         <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
                                         <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
-                                        <Chip label={race.state} color={race.state === 'qualifying' ? 'primary' : 'default'} sx={{ mt: 1 }} />
+                                        <Typography><strong>State:</strong> {race.state}</Typography>
                                         <Typography><strong>Drivers:</strong> {race.registeredDrivers}</Typography>
+                                        <Typography><strong>Race Kind:</strong> {race.kind}</Typography>
                                         <Typography variant="caption" display="block" sx={{ mt: 1 }}>
                                             Series ID: {race.seriesId} | Season ID: {race.seasonId}
                                         </Typography>

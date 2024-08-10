@@ -56,24 +56,34 @@ class IracingApi {
         return hash.toString('base64');
     }
 
-    async getData(endpoint, params = {}) {
-        try {
-            if (!this.authCookie) {
-                throw new Error('Not authenticated. Please login first.');
-            }
-            console.log('Sending request with auth cookie:', this.authCookie);
-            const response = await this.session.get(`data/${endpoint}`, { 
-                params,
-                headers: {
-                    Cookie: this.authCookie
+    async getData(endpoint, params = {}, retries = 3) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                if (!this.authCookie) {
+                    throw new Error('Not authenticated. Please login first.');
                 }
-            });
-            console.log('API Response:', response.data);
-            return response.data;
-        } catch (error) {
-            console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
-            throw error;
+                console.log('Sending request with auth cookie:', this.authCookie);
+                const response = await this.session.get(`data/${endpoint}`, { 
+                    params,
+                    headers: {
+                        Cookie: this.authCookie
+                    }
+                });
+                console.log('API Response:', response.data);
+                return response.data;
+            } catch (error) {
+                if (error.response && error.response.status === 429) {
+                    // Rate limited, wait for a bit before retrying
+                    const waitTime = 1000 * (i + 1);
+                    console.log(`Rate limited. Waiting for ${waitTime}ms before retry ${i + 1}`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                } else {
+                    console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
+                    throw error;
+                }
+            }
         }
+        throw new Error(`Failed to fetch data from ${endpoint} after ${retries} retries`);
     }
 
     async searchDrivers(searchTerm, leagueId = null) {
@@ -259,12 +269,13 @@ class IracingApi {
                                 this.getData('car/get', { car_id: car.car_id })
                             );
                             const carResponses = await Promise.all(carPromises);
-                            return carResponses.map(carData => {
+                            return Promise.all(carResponses.map(async carData => {
                                 if (carData.link) {
-                                    return axios.get(carData.link).then(res => res.data.car_name);
+                                    const carResponse = await axios.get(carData.link);
+                                    return carResponse.data.car_name;
                                 }
                                 return 'Unknown Car';
-                            });
+                            }));
                         }
                     }
                 }
