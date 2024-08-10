@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const IracingApi = require('./iRacingApi');
 const NodeCache = require('node-cache');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -15,11 +17,24 @@ app.use(cors({
         'https://www.speedtrapbets.com'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
 
 const iracingApi = new IracingApi();
 let isAuthenticated = false;
+
+// Function for logging errors
+function logError(error) {
+    const logDir = path.join(__dirname, 'logs');
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir);
+    }
+    const logFile = path.join(logDir, 'error.log');
+    const timestamp = new Date().toISOString();
+    const logEntry = `${timestamp}: ${error.stack}\n`;
+    fs.appendFileSync(logFile, logEntry);
+}
 
 // Authenticate at startup
 (async function authenticateIRacing() {
@@ -30,7 +45,8 @@ let isAuthenticated = false;
         isAuthenticated = true;
     } catch (error) {
         console.error('Authentication failed:', error);
-        // Implement a retry mechanism here
+        logError(error);
+        // TODO: Implement a retry mechanism here
     }
 })();
 
@@ -42,11 +58,13 @@ const checkAuth = (req, res, next) => {
     next();
 };
 
+// Request logging middleware
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
     next();
 });
 
+// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
@@ -55,6 +73,7 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Driver search endpoint
 app.get('/api/search-driver', checkAuth, async (request, response) => {
     try {
         const searchTerm = request.query.searchTerm;
@@ -75,6 +94,7 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
         response.json(result);
     } catch (error) {
         console.error('Error searching for driver:', error);
+        logError(error);
         response.status(500).json({
             error: 'An error occurred while searching for the driver',
             details: error.message
@@ -82,6 +102,7 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
     }
 });
 
+// Official races endpoint
 app.get('/api/official-races', checkAuth, async (request, response) => {
     try {
         const page = parseInt(request.query.page) || 1;
@@ -100,6 +121,7 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         response.json(officialRaces);
     } catch (error) {
         console.error('Error in /api/official-races:', error);
+        logError(error);
         response.status(500).json({
             error: 'An error occurred while fetching official races',
             details: error.message
@@ -107,6 +129,7 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
     }
 });
 
+// Refresh races endpoint
 app.get('/api/refresh-races', checkAuth, async (request, response) => {
     try {
         const page = 1;
@@ -117,6 +140,7 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
         response.json({ success: true, message: 'Cache refreshed successfully' });
     } catch (error) {
         console.error('Error refreshing races cache:', error);
+        logError(error);
         response.status(500).json({
             error: 'An error occurred while refreshing races cache',
             details: error.message
@@ -124,11 +148,19 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
     }
 });
 
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    logError(err);
+    res.status(500).send('Something broke!');
+});
+
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
+// Graceful shutdown handler
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
@@ -136,8 +168,17 @@ process.on('SIGTERM', () => {
     });
 });
 
+// Unhandled rejection handler
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    logError(new Error('Unhandled Rejection: ' + reason));
+});
+
+// Uncaught exception handler
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    logError(error);
+    process.exit(1);
 });
 
 module.exports = app;

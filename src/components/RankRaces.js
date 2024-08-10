@@ -36,7 +36,9 @@ const RankRaces = () => {
         setIsLoadingRaces(true);
         setError('');
         try {
-            const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`);
+            const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`, {
+                credentials: 'include' // Include credentials in the request
+            });
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -65,6 +67,7 @@ const RankRaces = () => {
             setError(`Failed to fetch official races: ${error.message}`);
             setSnackbarMessage(`Error: ${error.message}`);
             setSnackbarOpen(true);
+            console.error('Error fetching races:', error); // Log the error to the console
         } finally {
             setIsLoadingRaces(false);
         }

@@ -153,45 +153,45 @@ class IracingApi {
                 console.log('Returning cached official races data');
                 return this.paginateRaces(cachedData, page, pageSize);
             }
-
+    
             let raceGuideData = await this.getData('season/race_guide', {
                 from: currentTime,
                 include_end_after_from: true
             });
-
-            console.log('Initial API response:', JSON.stringify(raceGuideData, null, 2));
-
+    
             if (raceGuideData.link) {
-                console.log('Fetching data from link:', raceGuideData.link);
                 const response = await axios.get(raceGuideData.link);
                 raceGuideData = response.data;
-                console.log('Data fetched from link:', JSON.stringify(raceGuideData, null, 2));
             }
-
+    
             if (!Array.isArray(raceGuideData.sessions)) {
-                console.error('Race guide data is not an array:', raceGuideData);
                 throw new Error('Invalid race guide data structure');
             }
-
+    
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
-
+    
             const seriesData = await this.getSeriesData();
             const seasonData = await this.getSeasonData();
-
-            const transformedRaces = await Promise.all(raceGuideData.sessions.map(async race => {
+    
+            const relevantRaces = await Promise.all(raceGuideData.sessions.map(async race => {
                 const series = seriesData.find(s => s.series_id === race.series_id);
                 const season = seasonData.find(s => s.season_id === race.season_id);
                 
                 const trackDetails = await this.getTrackDetails(race.series_id, race.season_id);
                 const carDetails = await this.getCarDetails(race.series_id, race.season_id);
-
+    
+                const state = this.getRaceState(race);
+                if (!['practice', 'qualifying'].includes(state)) {
+                    return null;
+                }
+    
                 return {
                     name: series ? series.series_name : race.series_name || 'Unknown Series',
                     description: series ? series.series_short_name : 'Unknown',
                     kind: this.getKindFromCategory(race.category_id),
                     class: this.mapLicenseLevelToClass(season ? season.license_group : null),
                     startTime: race.start_time,
-                    state: this.getRaceState(race),
+                    state: state,
                     sessionMinutes: race.duration,
                     trackName: trackDetails.trackName,
                     trackConfig: trackDetails.trackConfig,
@@ -204,23 +204,17 @@ class IracingApi {
                     categoryId: season ? season.category_id : 'Unknown'
                 };
             }));
-
-            console.log(`Transformed races: ${transformedRaces.length}`);
-
-            const relevantRaces = transformedRaces.filter(race => 
-                ['practice', 'qualifying'].includes(race.state)
-            );
-
-            console.log(`Relevant races: ${relevantRaces.length}`);
-
-            relevantRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-            this.cache.set(cacheKey, relevantRaces);
-
-            return this.paginateRaces(relevantRaces, page, pageSize);
+    
+            const filteredRaces = relevantRaces.filter(race => race !== null);
+            console.log(`Relevant races: ${filteredRaces.length}`);
+    
+            filteredRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    
+            this.cache.set(cacheKey, filteredRaces);
+    
+            return this.paginateRaces(filteredRaces, page, pageSize);
         } catch (error) {
             console.error('Error fetching official races:', error);
-            console.error('Stack trace:', error.stack);
             throw error;
         }
     }
