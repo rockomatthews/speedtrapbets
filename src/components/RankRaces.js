@@ -11,8 +11,7 @@ import {
     CardContent, 
     Grid, 
     Button,
-    Divider,
-    LinearProgress
+    Divider
 } from '@mui/material';
 
 const RankRaces = () => {
@@ -43,10 +42,10 @@ const RankRaces = () => {
             if (data.races && Array.isArray(data.races)) {
                 const formattedRaces = data.races.map(race => ({
                     ...race,
-                    licenseLevel: mapLicenseGroupToLevel(race.licenseGroup),
+                    licenseLevel: race.class,
                     track: race.trackName + (race.trackConfig ? ` (${race.trackConfig})` : ''),
                     cars: race.carNames || 'Unknown',
-                    drivers: `${race.registeredDrivers} / ${race.maxDrivers}`
+                    drivers: race.registeredDrivers.toString()
                 }));
 
                 if (pageNum === 1) {
@@ -95,17 +94,6 @@ const RankRaces = () => {
         (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
         (classFilter === 'all' || race.licenseLevel === classFilter)
     );
-
-    const mapLicenseGroupToLevel = (licenseGroup) => {
-        const licenseMap = {
-            1: 'Rookie',
-            2: 'D',
-            3: 'C',
-            4: 'B',
-            5: 'A'
-        };
-        return licenseMap[licenseGroup] || 'Unknown';
-    };
 
     console.log('Filtered races:', filteredRaces);
 
@@ -162,11 +150,6 @@ const RankRaces = () => {
                                         <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
                                         <Typography><strong>State:</strong> {race.state}</Typography>
                                         <Typography><strong>Drivers:</strong> {race.drivers}</Typography>
-                                        <LinearProgress 
-                                            variant="determinate" 
-                                            value={(parseInt(race.drivers.split('/')[0]) / parseInt(race.drivers.split('/')[1])) * 100} 
-                                            sx={{ mt: 1, mb: 1 }}
-                                        />
                                     </CardContent>
                                 </Card>
                             </Grid>

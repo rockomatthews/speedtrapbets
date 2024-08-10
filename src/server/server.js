@@ -124,10 +124,7 @@ process.on('SIGTERM', () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // Log the stack trace
     console.error('Stack trace:', reason.stack);
-    // Optionally, you can terminate the process if an unhandled rejection occurs
-    // process.exit(1);
 });
 
 module.exports = app;

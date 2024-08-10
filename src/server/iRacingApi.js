@@ -19,6 +19,8 @@ class IracingApi {
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.getSeriesData = this.getSeriesData.bind(this);
         this.getSeasonData = this.getSeasonData.bind(this);
+        this.getTrackData = this.getTrackData.bind(this);
+        this.getCarData = this.getCarData.bind(this);
     }
 
     async login(username, password) {
@@ -116,6 +118,34 @@ class IracingApi {
         }
     }
 
+    async getTrackData(trackId) {
+        try {
+            const trackData = await this.getData('track/get', { track_id: trackId });
+            if (trackData.link) {
+                const response = await axios.get(trackData.link);
+                return response.data;
+            }
+            return trackData;
+        } catch (error) {
+            console.error('Error fetching track data:', error);
+            throw error;
+        }
+    }
+
+    async getCarData(carId) {
+        try {
+            const carData = await this.getData('car/get', { car_id: carId });
+            if (carData.link) {
+                const response = await axios.get(carData.link);
+                return response.data;
+            }
+            return carData;
+        } catch (error) {
+            console.error('Error fetching car data:', error);
+            throw error;
+        }
+    }
+
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
@@ -149,6 +179,16 @@ class IracingApi {
             const transformedRaces = await Promise.all(raceGuideData.sessions.map(async race => {
                 const series = seriesData.find(s => s.series_id === race.series_id);
                 const season = seasonData.find(s => s.season_id === race.season_id);
+                
+                let trackDetails = {};
+                if (race.track && race.track.track_id) {
+                    trackDetails = await this.getTrackData(race.track.track_id);
+                }
+
+                let carDetails = {};
+                if (race.car_class && race.car_class.cars_in_class) {
+                    carDetails = await Promise.all(race.car_class.cars_in_class.map(car => this.getCarData(car.car_id)));
+                }
 
                 return {
                     name: series ? series.series_name : race.series_name || 'Unknown Series',
@@ -158,9 +198,9 @@ class IracingApi {
                     startTime: race.start_time,
                     state: this.getRaceState(race),
                     sessionMinutes: race.duration,
-                    trackName: race.track?.track_name || 'Unknown Track',
-                    trackConfig: race.track?.config_name,
-                    carNames: (race.car_classes || []).map(cc => cc.name).join(', '),
+                    trackName: trackDetails.track_name || race.track?.track_name || 'Unknown Track',
+                    trackConfig: trackDetails.config_name || race.track?.config_name,
+                    carNames: carDetails.map(car => car.car_name).join(', ') || (race.car_classes || []).map(cc => cc.name).join(', '),
                     seriesId: race.series_id,
                     seasonId: race.season_id,
                     registeredDrivers: race.entry_count,
