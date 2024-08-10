@@ -21,6 +21,8 @@ app.use(cors({
     credentials: true
 }));
 
+console.log('CORS middleware applied');
+
 const iracingApi = new IracingApi();
 let isAuthenticated = false;
 
@@ -81,9 +83,11 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
         const cachedResult = cache.get(cacheKey);
 
         if (cachedResult) {
+            console.log('Returning cached driver search result');
             return response.json(cachedResult);
         }
 
+        console.log(`Searching for driver: ${searchTerm}`);
         const data = await iracingApi.searchDrivers(searchTerm);
         
         const result = Array.isArray(data) && data.length > 0
@@ -91,6 +95,7 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
             : { found: false };
 
         cache.set(cacheKey, result);
+        console.log('Driver search result cached and returned');
         response.json(result);
     } catch (error) {
         console.error('Error searching for driver:', error);
@@ -108,15 +113,20 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         const page = parseInt(request.query.page) || 1;
         const pageSize = parseInt(request.query.pageSize) || 10;
         
+        console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
+        
         const cacheKey = `official-races-${page}-${pageSize}`;
         const cachedData = cache.get(cacheKey);
         
         if (cachedData) {
+            console.log('Returning cached official races data');
             return response.json(cachedData);
         }
         
+        console.log('Fetching official races from iRacing API');
         const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
         
+        console.log('Caching and returning official races data');
         cache.set(cacheKey, officialRaces);
         response.json(officialRaces);
     } catch (error) {
@@ -134,9 +144,11 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
     try {
         const page = 1;
         const pageSize = 10;
+        console.log('Refreshing races cache');
         const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
         const cacheKey = `official-races-${page}-${pageSize}`;
         cache.set(cacheKey, officialRaces);
+        console.log('Races cache refreshed successfully');
         response.json({ success: true, message: 'Cache refreshed successfully' });
     } catch (error) {
         console.error('Error refreshing races cache:', error);
@@ -150,7 +162,7 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('Global error handler caught an error:', err.stack);
     logError(err);
     res.status(500).send('Something broke!');
 });

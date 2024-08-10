@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 
 const RankRaces = () => {
-    // State variables
     const [officialRaces, setOfficialRaces] = useState([]);
     const [raceKindFilter, setRaceKindFilter] = useState('all');
     const [classFilter, setClassFilter] = useState('all');
@@ -31,13 +30,16 @@ const RankRaces = () => {
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
 
-    // Function to fetch official races
     const fetchOfficialRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
         setError('');
         try {
             const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`, {
-                credentials: 'include' // Include credentials in the request
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
             });
             
             if (!response.ok) {
@@ -67,22 +69,20 @@ const RankRaces = () => {
             setError(`Failed to fetch official races: ${error.message}`);
             setSnackbarMessage(`Error: ${error.message}`);
             setSnackbarOpen(true);
-            console.error('Error fetching races:', error); // Log the error to the console
+            console.error('Error fetching races:', error);
         } finally {
             setIsLoadingRaces(false);
         }
     }, [officialRaces.length]);
 
-    // Effect to fetch races on component mount and periodically
     useEffect(() => {
         fetchOfficialRaces(1);
         const interval = setInterval(() => {
             fetchOfficialRaces(1);
-        }, 30000); // Refresh every 30 seconds
+        }, 30000);
         return () => clearInterval(interval);
     }, [fetchOfficialRaces]);
 
-    // Function to load more races
     const loadMore = useCallback(() => {
         if (!isLoadingRaces && hasMore) {
             setPage(prevPage => prevPage + 1);
@@ -90,7 +90,6 @@ const RankRaces = () => {
         }
     }, [isLoadingRaces, hasMore, page, fetchOfficialRaces]);
 
-    // Filter change handlers
     const handleRaceKindFilterChange = useCallback((event) => {
         setRaceKindFilter(event.target.value);
     }, []);
@@ -103,7 +102,6 @@ const RankRaces = () => {
         setStateFilter(event.target.value);
     }, []);
 
-    // Memoized filtered races
     const filteredRaces = useMemo(() => {
         return officialRaces.filter(race => 
             (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
@@ -112,7 +110,6 @@ const RankRaces = () => {
         );
     }, [officialRaces, raceKindFilter, classFilter, stateFilter]);
 
-    // Snackbar close handler
     const handleSnackbarClose = useCallback((event, reason) => {
         if (reason === 'clickaway') {
             return;
@@ -120,7 +117,10 @@ const RankRaces = () => {
         setSnackbarOpen(false);
     }, []);
 
-    // Render function
+    const handleRetry = useCallback(() => {
+        fetchOfficialRaces(1);
+    }, [fetchOfficialRaces]);
+
     return (
         <Box>
             <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
@@ -161,7 +161,15 @@ const RankRaces = () => {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
+                <Alert 
+                    severity="error" 
+                    sx={{ mb: 2 }}
+                    action={
+                        <Button color="inherit" size="small" onClick={handleRetry}>
+                            Retry
+                        </Button>
+                    }
+                >
                     {error}
                 </Alert>
             )}
