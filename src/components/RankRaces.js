@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     Typography, 
     Box, 
@@ -11,10 +11,13 @@ import {
     CardContent, 
     Grid, 
     Button,
-    Divider
+    Divider,
+    Alert,
+    Snackbar
 } from '@mui/material';
 
 const RankRaces = () => {
+    // State variables
     const [officialRaces, setOfficialRaces] = useState([]);
     const [raceKindFilter, setRaceKindFilter] = useState('all');
     const [classFilter, setClassFilter] = useState('all');
@@ -25,9 +28,13 @@ const RankRaces = () => {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [totalCount, setTotalCount] = useState(0);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
 
+    // Function to fetch official races
     const fetchOfficialRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
+        setError('');
         try {
             const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`);
             
@@ -49,16 +56,21 @@ const RankRaces = () => {
                 setHasMore(formattedRaces.length === 10 && officialRaces.length + formattedRaces.length < data.totalCount);
                 setLastUpdated(new Date());
                 setError('');
+                setSnackbarMessage('Races updated successfully');
+                setSnackbarOpen(true);
             } else {
-                setError('Received unexpected data structure from the server');
+                throw new Error('Received unexpected data structure from the server');
             }
         } catch (error) {
             setError(`Failed to fetch official races: ${error.message}`);
+            setSnackbarMessage(`Error: ${error.message}`);
+            setSnackbarOpen(true);
         } finally {
             setIsLoadingRaces(false);
         }
     }, [officialRaces.length]);
 
+    // Effect to fetch races on component mount and periodically
     useEffect(() => {
         fetchOfficialRaces(1);
         const interval = setInterval(() => {
@@ -67,31 +79,45 @@ const RankRaces = () => {
         return () => clearInterval(interval);
     }, [fetchOfficialRaces]);
 
-    const loadMore = () => {
+    // Function to load more races
+    const loadMore = useCallback(() => {
         if (!isLoadingRaces && hasMore) {
             setPage(prevPage => prevPage + 1);
             fetchOfficialRaces(page + 1);
         }
-    };
+    }, [isLoadingRaces, hasMore, page, fetchOfficialRaces]);
 
-    const handleRaceKindFilterChange = (event) => {
+    // Filter change handlers
+    const handleRaceKindFilterChange = useCallback((event) => {
         setRaceKindFilter(event.target.value);
-    };
+    }, []);
 
-    const handleClassFilterChange = (event) => {
+    const handleClassFilterChange = useCallback((event) => {
         setClassFilter(event.target.value);
-    };
+    }, []);
 
-    const handleStateFilterChange = (event) => {
+    const handleStateFilterChange = useCallback((event) => {
         setStateFilter(event.target.value);
-    };
+    }, []);
 
-    const filteredRaces = officialRaces.filter(race => 
-        (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
-        (classFilter === 'all' || race.class === classFilter) &&
-        (stateFilter === 'all' || race.state === stateFilter)
-    );
+    // Memoized filtered races
+    const filteredRaces = useMemo(() => {
+        return officialRaces.filter(race => 
+            (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
+            (classFilter === 'all' || race.class === classFilter) &&
+            (stateFilter === 'all' || race.state === stateFilter)
+        );
+    }, [officialRaces, raceKindFilter, classFilter, stateFilter]);
 
+    // Snackbar close handler
+    const handleSnackbarClose = useCallback((event, reason) => {
+        if (reason === 'clickaway') {
+            return;
+        }
+        setSnackbarOpen(false);
+    }, []);
+
+    // Render function
     return (
         <Box>
             <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
@@ -131,10 +157,16 @@ const RankRaces = () => {
                 </FormControl>
             </Box>
 
-            {error && <Typography color="error">{error}</Typography>}
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            )}
 
             {isLoadingRaces && page === 1 ? (
-                <CircularProgress />
+                <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                    <CircularProgress />
+                </Box>
             ) : filteredRaces.length > 0 ? (
                 <>
                     <Typography variant="body2" sx={{ mb: 2 }}>
@@ -164,13 +196,16 @@ const RankRaces = () => {
                         ))}
                     </Grid>
                     {hasMore && (
-                        <Button 
-                            onClick={loadMore} 
-                            disabled={isLoadingRaces}
-                            sx={{ mt: 2 }}
-                        >
-                            {isLoadingRaces ? 'Loading...' : 'Load More'}
-                        </Button>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                            <Button 
+                                onClick={loadMore} 
+                                disabled={isLoadingRaces}
+                                variant="contained"
+                                color="primary"
+                            >
+                                {isLoadingRaces ? 'Loading...' : 'Load More'}
+                            </Button>
+                        </Box>
                     )}
                 </>
             ) : (
@@ -182,8 +217,15 @@ const RankRaces = () => {
                     Last updated: {lastUpdated.toLocaleString()}
                 </Typography>
             )}
+
+            <Snackbar
+                open={snackbarOpen}
+                autoHideDuration={6000}
+                onClose={handleSnackbarClose}
+                message={snackbarMessage}
+            />
         </Box>
     );
 };
 
-export default RankRaces;
+export default React.memo(RankRaces);

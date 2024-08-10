@@ -10,9 +10,10 @@ class IracingApi {
             baseURL: this.baseUrl,
             withCredentials: true,
         });
-        this.cache = new NodeCache({ stdTTL: 300 }); // 5 minutes cache
+        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 }); // 5 minutes cache, check every 60 seconds
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
 
+        // Bind methods to ensure correct 'this' context
         this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
@@ -63,7 +64,10 @@ class IracingApi {
     async getData(endpoint, params = {}, retries = 3) {
         const cacheKey = `${endpoint}-${JSON.stringify(params)}`;
         const cachedData = this.cache.get(cacheKey);
-        if (cachedData) return cachedData;
+        if (cachedData) {
+            console.log(`Returning cached data for ${endpoint}`);
+            return cachedData;
+        }
 
         for (let i = 0; i < retries; i++) {
             try {
@@ -71,14 +75,14 @@ class IracingApi {
                 if (!this.authCookie) {
                     throw new Error('Not authenticated. Please login first.');
                 }
-                console.log('Sending request with auth cookie:', this.authCookie);
+                console.log(`Sending request to ${endpoint} with auth cookie:`, this.authCookie);
                 const response = await this.session.get(`data/${endpoint}`, { 
                     params,
                     headers: {
                         Cookie: this.authCookie
                     }
                 });
-                console.log('API Response:', response.data);
+                console.log(`API Response from ${endpoint}:`, response.data);
                 this.cache.set(cacheKey, response.data);
                 return response.data;
             } catch (error) {
@@ -142,6 +146,13 @@ class IracingApi {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             
             const currentTime = new Date().toISOString();
+            const cacheKey = `official-races-${currentTime.slice(0, 16)}`; // Cache key with minute precision
+            const cachedData = this.cache.get(cacheKey);
+            
+            if (cachedData) {
+                console.log('Returning cached official races data');
+                return this.paginateRaces(cachedData, page, pageSize);
+            }
 
             let raceGuideData = await this.getData('season/race_guide', {
                 from: currentTime,
@@ -159,7 +170,7 @@ class IracingApi {
 
             if (!Array.isArray(raceGuideData.sessions)) {
                 console.error('Race guide data is not an array:', raceGuideData);
-                return { races: [], totalCount: 0, page: page, pageSize: pageSize };
+                throw new Error('Invalid race guide data structure');
             }
 
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
@@ -204,17 +215,9 @@ class IracingApi {
 
             relevantRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-            const startIndex = (page - 1) * pageSize;
-            const paginatedRaces = relevantRaces.slice(startIndex, startIndex + pageSize);
+            this.cache.set(cacheKey, relevantRaces);
 
-            console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
-
-            return {
-                races: paginatedRaces,
-                totalCount: relevantRaces.length,
-                page: page,
-                pageSize: pageSize
-            };
+            return this.paginateRaces(relevantRaces, page, pageSize);
         } catch (error) {
             console.error('Error fetching official races:', error);
             console.error('Stack trace:', error.stack);
@@ -222,6 +225,18 @@ class IracingApi {
         }
     }
     
+    paginateRaces(races, page, pageSize) {
+        const startIndex = (page - 1) * pageSize;
+        const paginatedRaces = races.slice(startIndex, startIndex + pageSize);
+        console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
+        return {
+            races: paginatedRaces,
+            totalCount: races.length,
+            page: page,
+            pageSize: pageSize
+        };
+    }
+
     getRaceState(race) {
         const currentTime = new Date();
         const startTime = new Date(race.start_time);
@@ -241,6 +256,10 @@ class IracingApi {
 
     async getTrackDetails(seriesId, seasonId) {
         try {
+            const cacheKey = `track-details-${seriesId}-${seasonId}`;
+            const cachedData = this.cache.get(cacheKey);
+            if (cachedData) return cachedData;
+
             const seasonData = await this.getData('series/seasons', { series_id: seriesId });
             if (seasonData.link) {
                 const response = await axios.get(seasonData.link);
@@ -249,10 +268,12 @@ class IracingApi {
                     const trackData = await this.getData('track/get', { track_id: season.track.track_id });
                     if (trackData.link) {
                         const trackResponse = await axios.get(trackData.link);
-                        return {
+                        const trackDetails = {
                             trackName: trackResponse.data.track_name,
                             trackConfig: trackResponse.data.config_name
                         };
+                        this.cache.set(cacheKey, trackDetails);
+                        return trackDetails;
                     }
                 }
             }
@@ -265,6 +286,10 @@ class IracingApi {
 
     async getCarDetails(seriesId, seasonId) {
         try {
+            const cacheKey = `car-details-${seriesId}-${seasonId}`;
+            const cachedData = this.cache.get(cacheKey);
+            if (cachedData) return cachedData;
+
             const seasonData = await this.getData('series/seasons', { series_id: seriesId });
             if (seasonData.link) {
                 const response = await axios.get(seasonData.link);
@@ -278,13 +303,15 @@ class IracingApi {
                                 this.getData('car/get', { car_id: car.car_id })
                             );
                             const carResponses = await Promise.all(carPromises);
-                            return Promise.all(carResponses.map(async carData => {
+                            const carNames = await Promise.all(carResponses.map(async carData => {
                                 if (carData.link) {
                                     const carResponse = await axios.get(carData.link);
                                     return carResponse.data.car_name;
                                 }
                                 return 'Unknown Car';
                             }));
+                            this.cache.set(cacheKey, carNames);
+                            return carNames;
                         }
                     }
                 }
