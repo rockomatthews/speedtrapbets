@@ -19,8 +19,8 @@ class IracingApi {
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.getSeriesData = this.getSeriesData.bind(this);
         this.getSeasonData = this.getSeasonData.bind(this);
-        this.getTrackData = this.getTrackData.bind(this);
-        this.getCarData = this.getCarData.bind(this);
+        this.getTrackDetails = this.getTrackDetails.bind(this);
+        this.getCarDetails = this.getCarDetails.bind(this);
     }
 
     async login(username, password) {
@@ -118,81 +118,43 @@ class IracingApi {
         }
     }
 
-    async getTrackData(trackId) {
-        try {
-            const trackData = await this.getData('track/get', { track_id: trackId });
-            if (trackData.link) {
-                const response = await axios.get(trackData.link);
-                return response.data;
-            }
-            return trackData;
-        } catch (error) {
-            console.error('Error fetching track data:', error);
-            throw error;
-        }
-    }
-
-    async getCarData(carId) {
-        try {
-            const carData = await this.getData('car/get', { car_id: carId });
-            if (carData.link) {
-                const response = await axios.get(carData.link);
-                return response.data;
-            }
-            return carData;
-        } catch (error) {
-            console.error('Error fetching car data:', error);
-            throw error;
-        }
-    }
-
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             
             const currentTime = new Date().toISOString();
-    
+
             let raceGuideData = await this.getData('season/race_guide', {
                 from: currentTime,
                 include_end_after_from: true
             });
-    
+
             console.log('Initial API response:', JSON.stringify(raceGuideData, null, 2));
-    
+
             if (raceGuideData.link) {
                 console.log('Fetching data from link:', raceGuideData.link);
                 const response = await axios.get(raceGuideData.link);
                 raceGuideData = response.data;
                 console.log('Data fetched from link:', JSON.stringify(raceGuideData, null, 2));
             }
-    
+
             if (!Array.isArray(raceGuideData.sessions)) {
                 console.error('Race guide data is not an array:', raceGuideData);
                 return { races: [], totalCount: 0, page: page, pageSize: pageSize };
             }
-    
+
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
-    
+
             const seriesData = await this.getSeriesData();
             const seasonData = await this.getSeasonData();
-    
+
             const transformedRaces = await Promise.all(raceGuideData.sessions.map(async race => {
                 const series = seriesData.find(s => s.series_id === race.series_id);
                 const season = seasonData.find(s => s.season_id === race.season_id);
                 
-                let trackDetails = {};
-                if (race.track && race.track.track_id) {
-                    trackDetails = await this.getTrackData(race.track.track_id);
-                }
-    
-                let carNames = 'Unknown';
-                if (series && series.car_class_id) {
-                    const carClassDetails = await this.getCarClassData(series.car_class_id);
-                    if (carClassDetails && carClassDetails.cars) {
-                        carNames = carClassDetails.cars.map(car => car.name).join(', ');
-                    }
-                }
-    
+                const trackDetails = await this.getTrackDetails(race.series_id, race.season_id);
+                const carDetails = await this.getCarDetails(race.series_id, race.season_id);
+
                 return {
                     name: series ? series.series_name : race.series_name || 'Unknown Series',
                     description: series ? series.series_short_name : 'Unknown',
@@ -201,9 +163,9 @@ class IracingApi {
                     startTime: race.start_time,
                     state: this.getRaceState(race),
                     sessionMinutes: race.duration,
-                    trackName: trackDetails.track_name || race.track?.track_name || 'Unknown Track',
-                    trackConfig: trackDetails.config_name || race.track?.config_name,
-                    carNames: carNames,
+                    trackName: trackDetails.trackName,
+                    trackConfig: trackDetails.trackConfig,
+                    carNames: carDetails.join(', '),
                     seriesId: race.series_id,
                     seasonId: race.season_id,
                     registeredDrivers: race.entry_count,
@@ -212,25 +174,25 @@ class IracingApi {
                     categoryId: season ? season.category_id : 'Unknown'
                 };
             }));
-    
+
             console.log(`Transformed races: ${transformedRaces.length}`);
-    
-            const qualifyingRaces = transformedRaces.filter(race => 
-                race.state === 'qualifying'
+
+            const relevantRaces = transformedRaces.filter(race => 
+                ['practice', 'qualifying'].includes(race.state)
             );
-    
-            console.log(`Qualifying races: ${qualifyingRaces.length}`);
-    
-            qualifyingRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-    
+
+            console.log(`Relevant races: ${relevantRaces.length}`);
+
+            relevantRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
             const startIndex = (page - 1) * pageSize;
-            const paginatedRaces = qualifyingRaces.slice(startIndex, startIndex + pageSize);
-    
+            const paginatedRaces = relevantRaces.slice(startIndex, startIndex + pageSize);
+
             console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
-    
+
             return {
                 races: paginatedRaces,
-                totalCount: qualifyingRaces.length,
+                totalCount: relevantRaces.length,
                 page: page,
                 pageSize: pageSize
             };
@@ -241,39 +203,76 @@ class IracingApi {
         }
     }
     
-    // New method to get car class data
-    async getCarClassData(carClassId) {
-        try {
-            const carClassData = await this.getData('carclass/get', { car_class_id: carClassId });
-            if (carClassData.link) {
-                const response = await axios.get(carClassData.link);
-                return response.data;
-            }
-            return carClassData;
-        } catch (error) {
-            console.error('Error fetching car class data:', error);
-            throw error;
-        }
-    }
-    
-    // Updated getRaceState method
     getRaceState(race) {
         const currentTime = new Date();
         const startTime = new Date(race.start_time);
-        const endTime = new Date(race.end_time);
+        const practiceEndTime = new Date(startTime.getTime() + 30 * 60000); // 30 minutes after start
+        const qualifyingEndTime = new Date(practiceEndTime.getTime() + 10 * 60000); // 10 minutes qualifying
         
         if (currentTime < startTime) {
             return 'upcoming';
-        } else if (currentTime >= startTime && currentTime < endTime) {
-            // Assuming the first 10 minutes of the session is for qualifying
-            const qualifyingEndTime = new Date(startTime.getTime() + 10 * 60000);
-            if (currentTime < qualifyingEndTime) {
-                return 'qualifying';
-            } else {
-                return 'racing';
-            }
+        } else if (currentTime >= startTime && currentTime < practiceEndTime) {
+            return 'practice';
+        } else if (currentTime >= practiceEndTime && currentTime < qualifyingEndTime) {
+            return 'qualifying';
         } else {
-            return 'completed';
+            return 'in_progress';
+        }
+    }
+
+    async getTrackDetails(seriesId, seasonId) {
+        try {
+            const seasonData = await this.getData('series/seasons', { series_id: seriesId });
+            if (seasonData.link) {
+                const response = await axios.get(seasonData.link);
+                const season = response.data.find(s => s.season_id === seasonId);
+                if (season && season.track) {
+                    const trackData = await this.getData('track/get', { track_id: season.track.track_id });
+                    if (trackData.link) {
+                        const trackResponse = await axios.get(trackData.link);
+                        return {
+                            trackName: trackResponse.data.track_name,
+                            trackConfig: trackResponse.data.config_name
+                        };
+                    }
+                }
+            }
+            return { trackName: 'Unknown Track', trackConfig: '' };
+        } catch (error) {
+            console.error('Error fetching track details:', error);
+            return { trackName: 'Unknown Track', trackConfig: '' };
+        }
+    }
+
+    async getCarDetails(seriesId, seasonId) {
+        try {
+            const seasonData = await this.getData('series/seasons', { series_id: seriesId });
+            if (seasonData.link) {
+                const response = await axios.get(seasonData.link);
+                const season = response.data.find(s => s.season_id === seasonId);
+                if (season && season.car_class_id) {
+                    const carClassData = await this.getData('carclass/get', { car_class_id: season.car_class_id });
+                    if (carClassData.link) {
+                        const carClassResponse = await axios.get(carClassData.link);
+                        if (carClassResponse.data.cars_in_class) {
+                            const carPromises = carClassResponse.data.cars_in_class.map(car => 
+                                this.getData('car/get', { car_id: car.car_id })
+                            );
+                            const carResponses = await Promise.all(carPromises);
+                            return carResponses.map(carData => {
+                                if (carData.link) {
+                                    return axios.get(carData.link).then(res => res.data.car_name);
+                                }
+                                return 'Unknown Car';
+                            });
+                        }
+                    }
+                }
+            }
+            return ['Unknown Car'];
+        } catch (error) {
+            console.error('Error fetching car details:', error);
+            return ['Unknown Car'];
         }
     }
 

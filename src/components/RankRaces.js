@@ -11,13 +11,15 @@ import {
     CardContent, 
     Grid, 
     Button,
-    Divider
+    Divider,
+    Chip
 } from '@mui/material';
 
 const RankRaces = () => {
     const [officialRaces, setOfficialRaces] = useState([]);
     const [raceKindFilter, setRaceKindFilter] = useState('all');
     const [classFilter, setClassFilter] = useState('all');
+    const [stateFilter, setStateFilter] = useState('all');
     const [isLoadingRaces, setIsLoadingRaces] = useState(false);
     const [error, setError] = useState('');
     const [lastUpdated, setLastUpdated] = useState(null);
@@ -28,31 +30,20 @@ const RankRaces = () => {
     const fetchOfficialRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
         try {
-            console.log(`Fetching races for page ${pageNum}`);
             const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`);
-            console.log('Full API Response:', response);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
-            console.log('Parsed API data:', JSON.stringify(data, null, 2));
             
             if (data.races && Array.isArray(data.races)) {
-                const formattedRaces = data.races.map(race => ({
-                    ...race,
-                    licenseLevel: race.class,
-                    track: race.trackName + (race.trackConfig ? ` (${race.trackConfig})` : ''),
-                    cars: race.carNames || 'Unknown',
-                    drivers: race.registeredDrivers.toString()
-                }));
+                const formattedRaces = data.races;
 
                 if (pageNum === 1) {
-                    console.log('Setting initial races');
                     setOfficialRaces(formattedRaces);
                 } else {
-                    console.log('Appending new races');
                     setOfficialRaces(prevRaces => [...prevRaces, ...formattedRaces]);
                 }
                 setTotalCount(data.totalCount);
@@ -60,11 +51,9 @@ const RankRaces = () => {
                 setLastUpdated(new Date());
                 setError('');
             } else {
-                console.error('Received unexpected data structure:', data);
                 setError('Received unexpected data structure from the server');
             }
         } catch (error) {
-            console.error('Error fetching official races:', error);
             setError(`Failed to fetch official races: ${error.message}`);
         } finally {
             setIsLoadingRaces(false);
@@ -90,17 +79,19 @@ const RankRaces = () => {
         setClassFilter(event.target.value);
     };
 
+    const handleStateFilterChange = (event) => {
+        setStateFilter(event.target.value);
+    };
+
     const filteredRaces = officialRaces.filter(race => 
         (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
-        (classFilter === 'all' || race.licenseLevel === classFilter) &&
-        race.state === 'qualifying'
+        (classFilter === 'all' || race.class === classFilter) &&
+        (stateFilter === 'all' || race.state === stateFilter)
     );
-
-    console.log('Filtered races:', filteredRaces);
 
     return (
         <Box>
-            <Typography variant="h5" component="h2" gutterBottom>Qualifying Official Races</Typography>
+            <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
@@ -126,6 +117,15 @@ const RankRaces = () => {
                         <MenuItem value="A">A</MenuItem>
                     </Select>
                 </FormControl>
+
+                <FormControl sx={{ minWidth: 120 }}>
+                    <InputLabel>State</InputLabel>
+                    <Select value={stateFilter} onChange={handleStateFilterChange}>
+                        <MenuItem value="all">All</MenuItem>
+                        <MenuItem value="practice">Practice</MenuItem>
+                        <MenuItem value="qualifying">Qualifying</MenuItem>
+                    </Select>
+                </FormControl>
             </Box>
 
             {error && <Typography color="error">{error}</Typography>}
@@ -135,7 +135,7 @@ const RankRaces = () => {
             ) : filteredRaces.length > 0 ? (
                 <>
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                        Showing {filteredRaces.length} of {totalCount} total qualifying races
+                        Showing {filteredRaces.length} of {totalCount} total races
                     </Typography>
                     <Grid container spacing={2}>
                         {filteredRaces.map((race, index) => (
@@ -144,15 +144,16 @@ const RankRaces = () => {
                                     <CardContent>
                                         <Typography variant="h6" gutterBottom>{race.name}</Typography>
                                         <Divider sx={{ my: 1 }} />
-                                        <Typography><strong>License Level:</strong> {race.licenseLevel}</Typography>
-                                        <Typography><strong>Track:</strong> {race.track}</Typography>
-                                        <Typography><strong>Cars:</strong> {race.cars}</Typography>
+                                        <Typography><strong>License Level:</strong> {race.class}</Typography>
+                                        <Typography><strong>Track:</strong> {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                                        <Typography><strong>Cars:</strong> {race.carNames}</Typography>
                                         <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
                                         <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
-                                        <Typography><strong>State:</strong> {race.state}</Typography>
-                                        <Typography><strong>Drivers:</strong> {race.drivers}</Typography>
-                                        <Typography><strong>Series ID:</strong> {race.seriesId}</Typography>
-                                        <Typography><strong>Season ID:</strong> {race.seasonId}</Typography>
+                                        <Chip label={race.state} color={race.state === 'qualifying' ? 'primary' : 'default'} sx={{ mt: 1 }} />
+                                        <Typography><strong>Drivers:</strong> {race.registeredDrivers}</Typography>
+                                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                                        </Typography>
                                     </CardContent>
                                 </Card>
                             </Grid>
@@ -169,7 +170,7 @@ const RankRaces = () => {
                     )}
                 </>
             ) : (
-                <Typography>No qualifying races found matching the current filters.</Typography>
+                <Typography>No races found matching the current filters.</Typography>
             )}
 
             {lastUpdated && (
