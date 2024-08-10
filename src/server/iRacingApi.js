@@ -185,9 +185,11 @@ class IracingApi {
                     trackDetails = await this.getTrackData(race.track.track_id);
                 }
 
-                let carDetails = {};
+                let carNames = 'Unknown';
                 if (race.car_class && race.car_class.cars_in_class) {
-                    carDetails = await Promise.all(race.car_class.cars_in_class.map(car => this.getCarData(car.car_id)));
+                    const carDetailsPromises = race.car_class.cars_in_class.map(car => this.getCarData(car.car_id));
+                    const carDetailsArray = await Promise.all(carDetailsPromises);
+                    carNames = carDetailsArray.map(car => car.car_name || 'Unknown Car').join(', ');
                 }
 
                 return {
@@ -200,7 +202,7 @@ class IracingApi {
                     sessionMinutes: race.duration,
                     trackName: trackDetails.track_name || race.track?.track_name || 'Unknown Track',
                     trackConfig: trackDetails.config_name || race.track?.config_name,
-                    carNames: carDetails.map(car => car.car_name).join(', ') || (race.car_classes || []).map(cc => cc.name).join(', '),
+                    carNames: carNames,
                     seriesId: race.series_id,
                     seasonId: race.season_id,
                     registeredDrivers: race.entry_count,
