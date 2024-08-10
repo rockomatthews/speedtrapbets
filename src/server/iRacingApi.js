@@ -5,15 +5,22 @@ const { RateLimiter } = require('limiter');
 
 class IracingApi {
     constructor() {
+        // Set up the base URL for the iRacing API
         this.baseUrl = 'https://members-ng.iracing.com/';
+        
+        // Create an axios instance with default configuration
         this.session = axios.create({
             baseURL: this.baseUrl,
             withCredentials: true,
         });
-        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 }); // 5 minutes cache, check every 60 seconds
+        
+        // Initialize cache with 5 minutes TTL and check every 60 seconds
+        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+        
+        // Set up rate limiter: 5 requests per second
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
 
-        // Bind methods to ensure correct 'this' context
+        // Bind all methods to ensure correct 'this' context
         this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
@@ -26,10 +33,12 @@ class IracingApi {
         this.getSeasonData = this.getSeasonData.bind(this);
         this.getTrackDetails = this.getTrackDetails.bind(this);
         this.getCarDetails = this.getCarDetails.bind(this);
+        this.paginateRaces = this.paginateRaces.bind(this);
     }
 
     async login(username, password) {
         try {
+            console.log(`Attempting to log in user: ${username}`);
             const encodedPassword = this.encodePassword(username, password);
             const response = await this.session.post('auth', {
                 email: username,
@@ -43,6 +52,7 @@ class IracingApi {
                     throw new Error('Authentication cookie not found in response');
                 }
                 this.session.defaults.headers.Cookie = this.authCookie;
+                console.log('Authentication cookie set successfully');
             } else {
                 throw new Error('No cookies received in authentication response');
             }
@@ -100,11 +110,13 @@ class IracingApi {
     }
 
     async searchDrivers(searchTerm, leagueId = null) {
+        console.log(`Searching for driver with term: ${searchTerm}, leagueId: ${leagueId}`);
         const params = { search_term: searchTerm };
         if (leagueId) params.league_id = leagueId;
         const data = await this.getData('lookup/drivers', params);
         
         if (data && data.link) {
+            console.log('Fetching driver data from provided link');
             const response = await axios.get(data.link);
             console.log('Driver search results:', response.data);
             return response.data;
@@ -115,8 +127,10 @@ class IracingApi {
 
     async getSeriesData() {
         try {
+            console.log('Fetching series data');
             const seriesData = await this.getData('series/get');
             if (seriesData.link) {
+                console.log('Fetching detailed series data from provided link');
                 const response = await axios.get(seriesData.link);
                 return response.data;
             }
@@ -129,8 +143,10 @@ class IracingApi {
 
     async getSeasonData() {
         try {
+            console.log('Fetching season data');
             const seasonData = await this.getData('series/seasons');
             if (seasonData.link) {
+                console.log('Fetching detailed season data from provided link');
                 const response = await axios.get(seasonData.link);
                 return response.data;
             }
@@ -160,6 +176,7 @@ class IracingApi {
             });
     
             if (raceGuideData.link) {
+                console.log('Fetching detailed race guide data from provided link');
                 const response = await axios.get(raceGuideData.link);
                 raceGuideData = response.data;
             }
@@ -254,6 +271,7 @@ class IracingApi {
             const cachedData = this.cache.get(cacheKey);
             if (cachedData) return cachedData;
 
+            console.log(`Fetching track details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
             const seasonData = await this.getData('series/seasons', { series_id: seriesId });
             if (seasonData.link) {
                 const response = await axios.get(seasonData.link);
@@ -271,6 +289,7 @@ class IracingApi {
                     }
                 }
             }
+            console.log('Track details not found, returning default values');
             return { trackName: 'Unknown Track', trackConfig: '' };
         } catch (error) {
             console.error('Error fetching track details:', error);
@@ -284,6 +303,7 @@ class IracingApi {
             const cachedData = this.cache.get(cacheKey);
             if (cachedData) return cachedData;
 
+            console.log(`Fetching car details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
             const seasonData = await this.getData('series/seasons', { series_id: seriesId });
             if (seasonData.link) {
                 const response = await axios.get(seasonData.link);
@@ -310,6 +330,7 @@ class IracingApi {
                     }
                 }
             }
+            console.log('Car details not found, returning default values');
             return ['Unknown Car'];
         } catch (error) {
             console.error('Error fetching car details:', error);

@@ -4,10 +4,14 @@ const IracingApi = require('./iRacingApi');
 const NodeCache = require('node-cache');
 const fs = require('fs');
 const path = require('path');
+const rateLimit = require("express-rate-limit");
 require('dotenv').config();
 
+// Initialize Express application
 const app = express();
-const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 }); // 1 minute cache, check every 2 minutes
+
+// Initialize cache with 1 minute TTL and check every 2 minutes
+const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 
 // CORS configuration
 app.use(cors({
@@ -23,6 +27,7 @@ app.use(cors({
 
 console.log('CORS middleware applied');
 
+// Initialize iRacing API
 const iracingApi = new IracingApi();
 let isAuthenticated = false;
 
@@ -48,15 +53,18 @@ function logError(error) {
     } catch (error) {
         console.error('Authentication failed:', error);
         logError(error);
-        // TODO: Implement a retry mechanism here
+        // Implement a retry mechanism
+        setTimeout(authenticateIRacing, 60000); // Retry after 1 minute
     }
 })();
 
 // Middleware to check authentication
 const checkAuth = (req, res, next) => {
     if (!isAuthenticated) {
+        console.log('Authentication check failed');
         return res.status(503).json({ error: 'iRacing API not authenticated' });
     }
+    console.log('Authentication check passed');
     next();
 };
 
@@ -66,8 +74,18 @@ app.use((req, res, next) => {
     next();
 });
 
+// Rate limiting
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+});
+
+// Apply rate limiting to all requests
+app.use(apiLimiter);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
+    console.log('Health check requested');
     res.json({
         status: 'ok',
         authenticated: isAuthenticated,
@@ -79,6 +97,8 @@ app.get('/health', (req, res) => {
 app.get('/api/search-driver', checkAuth, async (request, response) => {
     try {
         const searchTerm = request.query.searchTerm;
+        console.log(`Driver search requested for term: ${searchTerm}`);
+        
         const cacheKey = `driver-search-${searchTerm}`;
         const cachedResult = cache.get(cacheKey);
 
@@ -164,7 +184,10 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
 app.use((err, req, res, next) => {
     console.error('Global error handler caught an error:', err.stack);
     logError(err);
-    res.status(500).send('Something broke!');
+    res.status(500).json({
+        error: 'Internal server error',
+        details: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
+    });
 });
 
 const PORT = process.env.PORT || 3001;
@@ -190,6 +213,7 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
     logError(error);
+    // In a production environment, you might want to attempt a graceful shutdown here
     process.exit(1);
 });
 
