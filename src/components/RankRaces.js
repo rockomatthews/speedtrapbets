@@ -13,11 +13,13 @@ import {
     Button,
     Divider,
     Alert,
-    Snackbar
+    Snackbar,
+    Tab,
+    Tabs
 } from '@mui/material';
 
 const RankRaces = () => {
-    const [officialRaces, setOfficialRaces] = useState([]);
+    const [races, setRaces] = useState([]);
     const [raceKindFilter, setRaceKindFilter] = useState('all');
     const [classFilter, setClassFilter] = useState('all');
     const [stateFilter, setStateFilter] = useState('all');
@@ -29,12 +31,23 @@ const RankRaces = () => {
     const [totalCount, setTotalCount] = useState(0);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
+    const [activeTab, setActiveTab] = useState('official');
+    const [leagueId, setLeagueId] = useState('');
 
-    const fetchOfficialRaces = useCallback(async (pageNum) => {
+    const fetchRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
         setError('');
         try {
-            const response = await fetch(`https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`, {
+            let url = `https://speedtrapbets.onrender.com/api/${activeTab}-races`;
+            if (activeTab === 'league' && !leagueId) {
+                throw new Error('League ID is required for fetching league races');
+            }
+            url += `?page=${pageNum}&pageSize=10`;
+            if (activeTab === 'league') {
+                url += `&leagueId=${leagueId}`;
+            }
+
+            const response = await fetch(url, {
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
@@ -49,15 +62,13 @@ const RankRaces = () => {
             const data = await response.json();
             
             if (data.races && Array.isArray(data.races)) {
-                const formattedRaces = data.races;
-
                 if (pageNum === 1) {
-                    setOfficialRaces(formattedRaces);
+                    setRaces(data.races);
                 } else {
-                    setOfficialRaces(prevRaces => [...prevRaces, ...formattedRaces]);
+                    setRaces(prevRaces => [...prevRaces, ...data.races]);
                 }
                 setTotalCount(data.totalCount);
-                setHasMore(formattedRaces.length === 10 && officialRaces.length + formattedRaces.length < data.totalCount);
+                setHasMore(data.races.length === 10 && races.length + data.races.length < data.totalCount);
                 setLastUpdated(new Date());
                 setError('');
                 setSnackbarMessage('Races updated successfully');
@@ -66,29 +77,29 @@ const RankRaces = () => {
                 throw new Error('Received unexpected data structure from the server');
             }
         } catch (error) {
-            setError(`Failed to fetch official races: ${error.message}`);
+            setError(`Failed to fetch races: ${error.message}`);
             setSnackbarMessage(`Error: ${error.message}`);
             setSnackbarOpen(true);
             console.error('Error fetching races:', error);
         } finally {
             setIsLoadingRaces(false);
         }
-    }, [officialRaces.length]);
+    }, [activeTab, leagueId, races.length]);
 
     useEffect(() => {
-        fetchOfficialRaces(1);
+        fetchRaces(1);
         const interval = setInterval(() => {
-            fetchOfficialRaces(1);
+            fetchRaces(1);
         }, 30000);
         return () => clearInterval(interval);
-    }, [fetchOfficialRaces]);
+    }, [fetchRaces, activeTab, leagueId]);
 
     const loadMore = useCallback(() => {
         if (!isLoadingRaces && hasMore) {
             setPage(prevPage => prevPage + 1);
-            fetchOfficialRaces(page + 1);
+            fetchRaces(page + 1);
         }
-    }, [isLoadingRaces, hasMore, page, fetchOfficialRaces]);
+    }, [isLoadingRaces, hasMore, page, fetchRaces]);
 
     const handleRaceKindFilterChange = useCallback((event) => {
         setRaceKindFilter(event.target.value);
@@ -102,13 +113,24 @@ const RankRaces = () => {
         setStateFilter(event.target.value);
     }, []);
 
+    const handleTabChange = useCallback((event, newValue) => {
+        setActiveTab(newValue);
+        setPage(1);
+        setRaces([]);
+        setHasMore(true);
+    }, []);
+
+    const handleLeagueIdChange = useCallback((event) => {
+        setLeagueId(event.target.value);
+    }, []);
+
     const filteredRaces = useMemo(() => {
-        return officialRaces.filter(race => 
+        return races.filter(race => 
             (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
-            (classFilter === 'all' || race.class === classFilter) &&
+            (classFilter === 'all' || race.licenseLevel === classFilter) &&
             (stateFilter === 'all' || race.state === stateFilter)
         );
-    }, [officialRaces, raceKindFilter, classFilter, stateFilter]);
+    }, [races, raceKindFilter, classFilter, stateFilter]);
 
     const handleSnackbarClose = useCallback((event, reason) => {
         if (reason === 'clickaway') {
@@ -118,12 +140,29 @@ const RankRaces = () => {
     }, []);
 
     const handleRetry = useCallback(() => {
-        fetchOfficialRaces(1);
-    }, [fetchOfficialRaces]);
+        fetchRaces(1);
+    }, [fetchRaces]);
 
     return (
         <Box>
-            <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
+            <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
+                <Tab label="Official Races" value="official" />
+                <Tab label="League Races" value="league" />
+            </Tabs>
+
+            {activeTab === 'league' && (
+                <FormControl sx={{ minWidth: 120, mb: 2 }}>
+                    <InputLabel>League ID</InputLabel>
+                    <Select value={leagueId} onChange={handleLeagueIdChange}>
+                        <MenuItem value="">
+                            <em>None</em>
+                        </MenuItem>
+                        <MenuItem value="1">League 1</MenuItem>
+                        <MenuItem value="2">League 2</MenuItem>
+                        <MenuItem value="3">League 3</MenuItem>
+                    </Select>
+                </FormControl>
+            )}
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
@@ -190,17 +229,19 @@ const RankRaces = () => {
                                     <CardContent>
                                         <Typography variant="h6" gutterBottom>{race.name}</Typography>
                                         <Divider sx={{ my: 1 }} />
-                                        <Typography><strong>License Level:</strong> {race.class}</Typography>
+                                        <Typography><strong>License Level:</strong> {race.licenseLevel}</Typography>
                                         <Typography><strong>Track:</strong> {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
                                         <Typography><strong>Cars:</strong> {race.carNames}</Typography>
                                         <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
                                         <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
                                         <Typography><strong>State:</strong> {race.state}</Typography>
-                                        <Typography><strong>Drivers:</strong> {race.registeredDrivers}</Typography>
-                                        <Typography><strong>Race Kind:</strong> {race.kind}</Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
-                                        </Typography>
+                                        <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers}</Typography>
+                                        {race.kind && <Typography><strong>Race Kind:</strong> {race.kind}</Typography>}
+                                        {activeTab === 'official' && (
+                                            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                                                Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                                            </Typography>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </Grid>

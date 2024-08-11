@@ -19,6 +19,7 @@ class IracingApi {
         this.getData = this.getData.bind(this);
         this.searchDrivers = this.searchDrivers.bind(this);
         this.getOfficialRaces = this.getOfficialRaces.bind(this);
+        this.getLeagueRaces = this.getLeagueRaces.bind(this);
         this.getRaceState = this.getRaceState.bind(this);
         this.getKindFromCategory = this.getKindFromCategory.bind(this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
@@ -187,6 +188,60 @@ class IracingApi {
             return this.paginateRaces(filteredRaces, page, pageSize);
         } catch (error) {
             console.error('Error fetching official races:', error);
+            throw error;
+        }
+    }
+
+    async getLeagueRaces(leagueId, page = 1, pageSize = 10) {
+        try {
+            console.log(`Fetching league races for league ID: ${leagueId} (Page: ${page}, PageSize: ${pageSize})`);
+            
+            const cacheKey = `league-races-${leagueId}-${page}-${pageSize}`;
+            const cachedData = this.cache.get(cacheKey);
+            
+            if (cachedData) {
+                console.log('Returning cached league races data');
+                return cachedData;
+            }
+    
+            const leagueData = await this.getData('league/get', { league_id: leagueId });
+            
+            if (!leagueData || !leagueData.sessions) {
+                throw new Error('Invalid league data structure');
+            }
+    
+            console.log(`Total league sessions: ${leagueData.sessions.length}`);
+    
+            const relevantRaces = leagueData.sessions.map(race => {
+                const state = this.getRaceState(race);
+                if (state !== 'practice' && state !== 'qualifying') {
+                    return null;
+                }
+    
+                return {
+                    name: race.name || 'Unknown League Race',
+                    description: race.description || 'No description',
+                    startTime: race.start_time,
+                    state: state,
+                    sessionMinutes: race.duration,
+                    registeredDrivers: race.num_registered_drivers,
+                    maxDrivers: race.max_drivers || 0,
+                    trackName: race.track ? race.track.track_name : 'Unknown Track',
+                    trackConfig: race.track ? race.track.config_name : '',
+                    carNames: race.cars ? race.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
+                };
+            }).filter(race => race !== null);
+    
+            console.log(`Relevant league races: ${relevantRaces.length}`);
+    
+            relevantRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    
+            const paginatedResult = this.paginateRaces(relevantRaces, page, pageSize);
+            this.cache.set(cacheKey, paginatedResult);
+    
+            return paginatedResult;
+        } catch (error) {
+            console.error('Error fetching league races:', error);
             throw error;
         }
     }

@@ -167,6 +167,33 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
     }
 });
 
+// League races endpoint
+app.get('/api/league-races', checkAuth, async (request, response) => {
+    try {
+        const leagueId = parseInt(request.query.leagueId);
+        const page = parseInt(request.query.page) || 1;
+        const pageSize = parseInt(request.query.pageSize) || 10;
+        
+        if (!leagueId) {
+            return response.status(400).json({ error: 'League ID is required' });
+        }
+        
+        console.log(`Fetching league races for league ID: ${leagueId} (Page: ${page}, PageSize: ${pageSize})`);
+        
+        const leagueRaces = await iracingApi.getLeagueRaces(leagueId, page, pageSize);
+        
+        console.log('Returning league races data');
+        response.json(leagueRaces);
+    } catch (error) {
+        console.error('Error in /api/league-races:', error);
+        logError(error);
+        response.status(500).json({
+            error: 'An error occurred while fetching league races',
+            details: error.message
+        });
+    }
+});
+
 // Refresh races endpoint
 app.get('/api/refresh-races', checkAuth, async (request, response) => {
     try {
