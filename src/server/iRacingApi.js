@@ -24,6 +24,9 @@ class IracingApi {
         this.getKindFromCategory = this.getKindFromCategory.bind(this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.paginateRaces = this.paginateRaces.bind(this);
+        this.getCarClasses = this.getCarClasses.bind(this);
+        this.getLeagueInfo = this.getLeagueInfo.bind(this);
+        this.getSubsessionResults = this.getSubsessionResults.bind(this);
     }
 
     async login(username, password) {
@@ -145,32 +148,23 @@ class IracingApi {
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
     
-            let seriesData = await this.getData('series/get');
+            const seriesData = await this.getData('series/get');
+            const carClassData = await this.getCarClasses();
             
-            if (seriesData.link) {
-                console.log('Fetching detailed series data from provided link');
-                const response = await axios.get(seriesData.link);
-                seriesData = response.data;
-            }
-    
-            if (!Array.isArray(seriesData)) {
-                console.error('Series data is not an array:', seriesData);
-                seriesData = [];
-            }
-    
             const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
                 const state = this.getRaceState(race);
                 if (state !== 'practice' && state !== 'qualifying') {
                     return null;
                 }
     
-                const series = seriesData.find(s => s.series_id === race.series_id) || {};
+                const series = seriesData.find(s => s.series_id === race.series_id);
                 const seasonData = await this.getData('series/seasons', { series_id: race.series_id });
-                const season = Array.isArray(seasonData) ? seasonData.find(s => s.season_id === race.season_id) : {};
-    
+                const season = seasonData.find(s => s.season_id === race.season_id);
+                const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id);
+
                 return {
-                    name: series.series_name || race.series_name || 'Unknown Series',
-                    description: series.series_short_name || 'Unknown',
+                    name: series ? series.series_name : (race.series_name || 'Unknown Series'),
+                    description: series ? series.series_short_name : 'Unknown',
                     licenseLevel: this.mapLicenseLevelToClass(season ? season.license_group : null),
                     startTime: race.start_time,
                     state: state,
@@ -183,22 +177,79 @@ class IracingApi {
                     kind: this.getKindFromCategory(race.category_id),
                     trackName: season && season.track ? season.track.track_name : 'Unknown Track',
                     trackConfig: season && season.track ? season.track.config_name : '',
-                    carNames: season && season.car_class && season.car_class.cars 
-                        ? season.car_class.cars.map(car => car.car_name).join(', ')
-                        : 'Unknown Car'
+                    carNames: carClass ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
                 };
             }));
     
             const filteredRaces = relevantRaces.filter(race => race !== null);
             console.log(`Relevant races: ${filteredRaces.length}`);
     
-            filteredRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+            // Sort races by state: qualifying first, then practice
+            filteredRaces.sort((a, b) => {
+                if (a.state === 'qualifying' && b.state !== 'qualifying') return -1;
+                if (a.state !== 'qualifying' && b.state === 'qualifying') return 1;
+                return new Date(a.startTime) - new Date(b.startTime);
+            });
     
             this.cache.set(cacheKey, filteredRaces);
     
             return this.paginateRaces(filteredRaces, page, pageSize);
         } catch (error) {
             console.error('Error fetching official races:', error);
+            throw error;
+        }
+    }
+
+    async getCarClasses() {
+        try {
+            const cacheKey = 'car-classes';
+            const cachedData = this.cache.get(cacheKey);
+            
+            if (cachedData) {
+                return cachedData;
+            }
+
+            const carClassData = await this.getData('carclass/get');
+            this.cache.set(cacheKey, carClassData);
+            return carClassData;
+        } catch (error) {
+            console.error('Error fetching car classes:', error);
+            throw error;
+        }
+    }
+
+    async getLeagueInfo(leagueId) {
+        try {
+            const cacheKey = `league-info-${leagueId}`;
+            const cachedData = this.cache.get(cacheKey);
+            
+            if (cachedData) {
+                return cachedData;
+            }
+
+            const leagueData = await this.getData('league/get', { league_id: leagueId, include_license: false });
+            this.cache.set(cacheKey, leagueData);
+            return leagueData;
+        } catch (error) {
+            console.error('Error fetching league info:', error);
+            throw error;
+        }
+    }
+
+    async getSubsessionResults(subsessionId) {
+        try {
+            const cacheKey = `subsession-results-${subsessionId}`;
+            const cachedData = this.cache.get(cacheKey);
+            
+            if (cachedData) {
+                return cachedData;
+            }
+
+            const resultsData = await this.getData('results/get', { subsession_id: subsessionId, include_licenses: false });
+            this.cache.set(cacheKey, resultsData);
+            return resultsData;
+        } catch (error) {
+            console.error('Error fetching subsession results:', error);
             throw error;
         }
     }

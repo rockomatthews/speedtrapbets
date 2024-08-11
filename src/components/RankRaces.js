@@ -39,14 +39,16 @@ const RankRaces = () => {
         setError('');
         try {
             let url = `https://speedtrapbets.onrender.com/api/${activeTab}-races`;
-            if (activeTab === 'league' && !leagueId) {
-                throw new Error('League ID is required for fetching league races');
-            }
-            url += `?page=${pageNum}&pageSize=10`;
             if (activeTab === 'league') {
-                url += `&leagueId=${leagueId}`;
+                if (!leagueId) {
+                    setError('Please select a League ID before fetching league races.');
+                    setIsLoadingRaces(false);
+                    return;
+                }
+                url += `?leagueId=${leagueId}`;
             }
-    
+            url += `${url.includes('?') ? '&' : '?'}page=${pageNum}&pageSize=10`;
+
             const response = await fetch(url, {
                 credentials: 'include',
                 headers: {
@@ -57,7 +59,7 @@ const RankRaces = () => {
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
@@ -163,6 +165,12 @@ const RankRaces = () => {
                         <MenuItem value="3">League 3</MenuItem>
                     </Select>
                 </FormControl>
+            )}
+
+            {activeTab === 'league' && !leagueId && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    Please select a League ID to view league races.
+                </Alert>
             )}
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
