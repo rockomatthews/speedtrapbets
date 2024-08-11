@@ -170,7 +170,7 @@ const Dashboard = () => {
                 </Box>
 
                 {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-                {searchResult && searchResult.found && (
+                {searchResult?.found && (
                     <Alert severity="success" sx={{ mt: 2 }}>iRacing name verified and saved.</Alert>
                 )}
 
