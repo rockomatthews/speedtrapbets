@@ -175,7 +175,7 @@ app.get('/api/league-races', checkAuth, async (request, response) => {
         const pageSize = parseInt(request.query.pageSize) || 10;
         
         if (!leagueId) {
-            return response.status(400).json({ error: 'League ID is required' });
+            return response.status(400).json({ error: 'League ID is required. Please provide a leagueId query parameter.' });
         }
         
         console.log(`Fetching league races for league ID: ${leagueId} (Page: ${page}, PageSize: ${pageSize})`);

@@ -215,7 +215,29 @@ class IracingApi {
                 return cachedData;
             }
     
-            const leagueData = await this.getData('league/get', { league_id: leagueId });
+            const fetchWithRetry = async (url, retries = 3) => {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await axios.get(url);
+                        return response.data;
+                    } catch (error) {
+                        if (error.response && error.response.status === 403 && error.response.data.includes('Request has expired')) {
+                            console.log(`S3 request expired, retrying (${i + 1}/${retries})...`);
+                            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retrying
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
+                throw new Error('Max retries reached for S3 request');
+            };
+    
+            let leagueData = await this.getData('league/get', { league_id: leagueId });
+            
+            if (leagueData.link) {
+                console.log('Fetching detailed league data from provided link');
+                leagueData = await fetchWithRetry(leagueData.link);
+            }
             
             if (!leagueData || !leagueData.sessions) {
                 throw new Error('Invalid league data structure');
