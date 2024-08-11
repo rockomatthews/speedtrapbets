@@ -85,7 +85,7 @@ function logError(error) {
         console.log('Retrying authentication in 60 seconds...');
         setTimeout(authenticateIRacing, 60000); // Retry after 1 minute
     }
-})();
+}());
 
 // Middleware to check authentication before processing requests
 const checkAuth = (req, res, next) => {
