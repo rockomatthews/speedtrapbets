@@ -103,7 +103,7 @@ class IracingApi {
         if (leagueId) params.league_id = leagueId;
         const data = await this.getData('lookup/drivers', params);
         
-        if (data && data.link) {
+        if (data?.link) {
             console.log('Fetching driver data from provided link');
             const response = await axios.get(data.link);
             console.log('Driver search results:', response.data);

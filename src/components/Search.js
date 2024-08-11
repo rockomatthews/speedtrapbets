@@ -70,7 +70,7 @@ const Search = () => {
           )}
         </Box>
       )}
-      {searchResult && searchResult.error && (
+      {searchResult?.error && (
         <Typography color="error">Error: {searchResult.error}</Typography>
       )}
     </Box>
