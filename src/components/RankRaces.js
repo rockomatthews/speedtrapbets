@@ -46,7 +46,7 @@ const RankRaces = () => {
             if (activeTab === 'league') {
                 url += `&leagueId=${leagueId}`;
             }
-
+    
             const response = await fetch(url, {
                 credentials: 'include',
                 headers: {
@@ -56,7 +56,8 @@ const RankRaces = () => {
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
             }
             
             const data = await response.json();

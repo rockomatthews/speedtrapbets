@@ -120,7 +120,7 @@ class IracingApi {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             
             const currentTime = new Date().toISOString();
-            const cacheKey = `official-races-${currentTime.slice(0, 16)}`; // Cache key with minute precision
+            const cacheKey = `official-races-${currentTime.slice(0, 16)}`;
             const cachedData = this.cache.get(cacheKey);
             
             if (cachedData) {
@@ -145,21 +145,32 @@ class IracingApi {
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
     
-            const seriesData = await this.getData('series/get');
+            let seriesData = await this.getData('series/get');
             
+            if (seriesData.link) {
+                console.log('Fetching detailed series data from provided link');
+                const response = await axios.get(seriesData.link);
+                seriesData = response.data;
+            }
+    
+            if (!Array.isArray(seriesData)) {
+                console.error('Series data is not an array:', seriesData);
+                seriesData = [];
+            }
+    
             const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
                 const state = this.getRaceState(race);
                 if (state !== 'practice' && state !== 'qualifying') {
                     return null;
                 }
     
-                const series = seriesData.find(s => s.series_id === race.series_id);
+                const series = seriesData.find(s => s.series_id === race.series_id) || {};
                 const seasonData = await this.getData('series/seasons', { series_id: race.series_id });
-                const season = seasonData.find(s => s.season_id === race.season_id);
+                const season = Array.isArray(seasonData) ? seasonData.find(s => s.season_id === race.season_id) : {};
     
                 return {
-                    name: series ? series.series_name : (race.series_name || 'Unknown Series'),
-                    description: series ? series.series_short_name : 'Unknown',
+                    name: series.series_name || race.series_name || 'Unknown Series',
+                    description: series.series_short_name || 'Unknown',
                     licenseLevel: this.mapLicenseLevelToClass(season ? season.license_group : null),
                     startTime: race.start_time,
                     state: state,
