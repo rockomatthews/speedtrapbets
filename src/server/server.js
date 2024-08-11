@@ -46,24 +46,13 @@ let isAuthenticated = false;
 
 // Function for logging errors to a file
 function logError(error) {
-    // Define the directory for log files
     const logDir = path.join(__dirname, 'logs');
-    
-    // Create the log directory if it doesn't exist
     if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir);
     }
-    
-    // Define the path for the error log file
     const logFile = path.join(logDir, 'error.log');
-    
-    // Get the current timestamp
     const timestamp = new Date().toISOString();
-    
-    // Create the log entry with timestamp and error stack
     const logEntry = `${timestamp}: ${error.stack}\n`;
-    
-    // Append the log entry to the file
     fs.appendFileSync(logFile, logEntry);
 }
 
@@ -71,17 +60,12 @@ function logError(error) {
 (async function authenticateIRacing() {
     try {
         console.log('Attempting to authenticate with iRacing API...');
-        
-        // Attempt to log in using environment variables for credentials
         await iracingApi.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
-        
         console.log('Authentication with iRacing API was successful.');
         isAuthenticated = true;
     } catch (error) {
         console.error('Authentication with iRacing API failed:', error);
         logError(error);
-        
-        // Implement a retry mechanism
         console.log('Retrying authentication in 60 seconds...');
         setTimeout(authenticateIRacing, 60000); // Retry after 1 minute
     }
@@ -110,8 +94,6 @@ if (rateLimit) {
         max: 100, // limit each IP to 100 requests per windowMs
         message: "Too many requests from this IP, please try again after 15 minutes"
     });
-
-    // Apply rate limiting to all requests
     app.use(apiLimiter);
     console.log('Rate limiting has been applied to all requests.');
 } else {
@@ -192,10 +174,8 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
         const pageSize = 10;
         console.log('Refreshing races cache.');
         const officialRaces = await iracingApi.getOfficialRaces(page, pageSize);
-        const cacheKey = `official-races-${page}-${pageSize}`;
-        cache.set(cacheKey, officialRaces);
         console.log('Races cache refreshed successfully.');
-        response.json({ success: true, message: 'Cache refreshed successfully' });
+        response.json({ success: true, message: 'Cache refreshed successfully', data: officialRaces });
     } catch (error) {
         console.error('Error occurred while refreshing races cache:', error);
         logError(error);
@@ -244,7 +224,6 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception detected:', error);
     logError(error);
-    // In a production environment, you might want to attempt a graceful shutdown here
     console.log('Shutting down due to uncaught exception...');
     process.exit(1);
 });
