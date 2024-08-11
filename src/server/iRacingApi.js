@@ -19,14 +19,11 @@ class IracingApi {
         this.getData = this.getData.bind(this);
         this.searchDrivers = this.searchDrivers.bind(this);
         this.getOfficialRaces = this.getOfficialRaces.bind(this);
-        this.getLeagueRaces = this.getLeagueRaces.bind(this);
         this.getRaceState = this.getRaceState.bind(this);
         this.getKindFromCategory = this.getKindFromCategory.bind(this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.paginateRaces = this.paginateRaces.bind(this);
         this.getCarClasses = this.getCarClasses.bind(this);
-        this.getLeagueInfo = this.getLeagueInfo.bind(this);
-        this.getSubsessionResults = this.getSubsessionResults.bind(this);
     }
 
     async login(username, password) {
@@ -102,10 +99,9 @@ class IracingApi {
         throw new Error(`Failed to fetch data from ${endpoint} after ${retries} retries`);
     }
 
-    async searchDrivers(searchTerm, leagueId = null) {
-        console.log(`Searching for driver with term: ${searchTerm}, leagueId: ${leagueId}`);
+    async searchDrivers(searchTerm) {
+        console.log(`Searching for driver with term: ${searchTerm}`);
         const params = { search_term: searchTerm };
-        if (leagueId) params.league_id = leagueId;
         const data = await this.getData('lookup/drivers', params);
         
         if (data && data.link) {
@@ -148,7 +144,13 @@ class IracingApi {
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
     
-            const seriesData = await this.getData('series/get');
+            let seriesData = await this.getData('series/get');
+            if (seriesData.link) {
+                console.log('Fetching detailed series data from provided link');
+                const response = await axios.get(seriesData.link);
+                seriesData = response.data;
+            }
+
             const carClassData = await this.getCarClasses();
             
             const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
@@ -157,15 +159,15 @@ class IracingApi {
                     return null;
                 }
     
-                const series = seriesData.find(s => s.series_id === race.series_id);
+                const series = seriesData.find(s => s.series_id === race.series_id) || {};
                 const seasonData = await this.getData('series/seasons', { series_id: race.series_id });
-                const season = seasonData.find(s => s.season_id === race.season_id);
-                const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id);
+                const season = Array.isArray(seasonData) ? seasonData.find(s => s.season_id === race.season_id) : {};
+                const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
 
                 return {
-                    name: series ? series.series_name : (race.series_name || 'Unknown Series'),
-                    description: series ? series.series_short_name : 'Unknown',
-                    licenseLevel: this.mapLicenseLevelToClass(season ? season.license_group : null),
+                    name: series.series_name || race.series_name || 'Unknown Series',
+                    description: series.series_short_name || 'Unknown',
+                    licenseLevel: this.mapLicenseLevelToClass(season.license_group),
                     startTime: race.start_time,
                     state: state,
                     sessionMinutes: race.duration,
@@ -175,16 +177,15 @@ class IracingApi {
                     seasonId: race.season_id,
                     categoryId: race.category_id,
                     kind: this.getKindFromCategory(race.category_id),
-                    trackName: season && season.track ? season.track.track_name : 'Unknown Track',
-                    trackConfig: season && season.track ? season.track.config_name : '',
-                    carNames: carClass ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
+                    trackName: season.track ? season.track.track_name : 'Unknown Track',
+                    trackConfig: season.track ? season.track.config_name : '',
+                    carNames: carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
                 };
             }));
     
             const filteredRaces = relevantRaces.filter(race => race !== null);
             console.log(`Relevant races: ${filteredRaces.length}`);
     
-            // Sort races by state: qualifying first, then practice
             filteredRaces.sort((a, b) => {
                 if (a.state === 'qualifying' && b.state !== 'qualifying') return -1;
                 if (a.state !== 'qualifying' && b.state === 'qualifying') return 1;
@@ -209,123 +210,16 @@ class IracingApi {
                 return cachedData;
             }
 
-            const carClassData = await this.getData('carclass/get');
+            let carClassData = await this.getData('carclass/get');
+            if (carClassData.link) {
+                console.log('Fetching detailed car class data from provided link');
+                const response = await axios.get(carClassData.link);
+                carClassData = response.data;
+            }
             this.cache.set(cacheKey, carClassData);
             return carClassData;
         } catch (error) {
             console.error('Error fetching car classes:', error);
-            throw error;
-        }
-    }
-
-    async getLeagueInfo(leagueId) {
-        try {
-            const cacheKey = `league-info-${leagueId}`;
-            const cachedData = this.cache.get(cacheKey);
-            
-            if (cachedData) {
-                return cachedData;
-            }
-
-            const leagueData = await this.getData('league/get', { league_id: leagueId, include_license: false });
-            this.cache.set(cacheKey, leagueData);
-            return leagueData;
-        } catch (error) {
-            console.error('Error fetching league info:', error);
-            throw error;
-        }
-    }
-
-    async getSubsessionResults(subsessionId) {
-        try {
-            const cacheKey = `subsession-results-${subsessionId}`;
-            const cachedData = this.cache.get(cacheKey);
-            
-            if (cachedData) {
-                return cachedData;
-            }
-
-            const resultsData = await this.getData('results/get', { subsession_id: subsessionId, include_licenses: false });
-            this.cache.set(cacheKey, resultsData);
-            return resultsData;
-        } catch (error) {
-            console.error('Error fetching subsession results:', error);
-            throw error;
-        }
-    }
-
-    async getLeagueRaces(leagueId, page = 1, pageSize = 10) {
-        try {
-            console.log(`Fetching league races for league ID: ${leagueId} (Page: ${page}, PageSize: ${pageSize})`);
-            
-            const cacheKey = `league-races-${leagueId}-${page}-${pageSize}`;
-            const cachedData = this.cache.get(cacheKey);
-            
-            if (cachedData) {
-                console.log('Returning cached league races data');
-                return cachedData;
-            }
-    
-            const fetchWithRetry = async (url, retries = 3) => {
-                for (let i = 0; i < retries; i++) {
-                    try {
-                        const response = await axios.get(url);
-                        return response.data;
-                    } catch (error) {
-                        if (error.response && error.response.status === 403 && error.response.data.includes('Request has expired')) {
-                            console.log(`S3 request expired, retrying (${i + 1}/${retries})...`);
-                            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retrying
-                        } else {
-                            throw error;
-                        }
-                    }
-                }
-                throw new Error('Max retries reached for S3 request');
-            };
-    
-            let leagueData = await this.getData('league/get', { league_id: leagueId });
-            
-            if (leagueData.link) {
-                console.log('Fetching detailed league data from provided link');
-                leagueData = await fetchWithRetry(leagueData.link);
-            }
-            
-            if (!leagueData || !leagueData.sessions) {
-                throw new Error('Invalid league data structure');
-            }
-    
-            console.log(`Total league sessions: ${leagueData.sessions.length}`);
-    
-            const relevantRaces = leagueData.sessions.map(race => {
-                const state = this.getRaceState(race);
-                if (state !== 'practice' && state !== 'qualifying') {
-                    return null;
-                }
-    
-                return {
-                    name: race.name || 'Unknown League Race',
-                    description: race.description || 'No description',
-                    startTime: race.start_time,
-                    state: state,
-                    sessionMinutes: race.duration,
-                    registeredDrivers: race.num_registered_drivers,
-                    maxDrivers: race.max_drivers || 0,
-                    trackName: race.track ? race.track.track_name : 'Unknown Track',
-                    trackConfig: race.track ? race.track.config_name : '',
-                    carNames: race.cars ? race.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
-                };
-            }).filter(race => race !== null);
-    
-            console.log(`Relevant league races: ${relevantRaces.length}`);
-    
-            relevantRaces.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-    
-            const paginatedResult = this.paginateRaces(relevantRaces, page, pageSize);
-            this.cache.set(cacheKey, paginatedResult);
-    
-            return paginatedResult;
-        } catch (error) {
-            console.error('Error fetching league races:', error);
             throw error;
         }
     }
@@ -372,11 +266,11 @@ class IracingApi {
 
     mapLicenseLevelToClass(licenseGroup) {
         const licenseMap = {
-            1: 'Rookie',
-            2: 'D',
-            3: 'C',
-            4: 'B',
-            5: 'A'
+            1: 5,
+            2: 4,
+            3: 3,
+            4: 2,
+            5: 1
         };
         return licenseMap[licenseGroup] || 'unknown';
     }

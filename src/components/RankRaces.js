@@ -13,9 +13,7 @@ import {
     Button,
     Divider,
     Alert,
-    Snackbar,
-    Tab,
-    Tabs
+    Snackbar
 } from '@mui/material';
 
 const RankRaces = () => {
@@ -31,23 +29,12 @@ const RankRaces = () => {
     const [totalCount, setTotalCount] = useState(0);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
-    const [activeTab, setActiveTab] = useState('official');
-    const [leagueId, setLeagueId] = useState('');
 
     const fetchRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
         setError('');
         try {
-            let url = `https://speedtrapbets.onrender.com/api/${activeTab}-races`;
-            if (activeTab === 'league') {
-                if (!leagueId) {
-                    setError('Please select a League ID before fetching league races.');
-                    setIsLoadingRaces(false);
-                    return;
-                }
-                url += `?leagueId=${leagueId}`;
-            }
-            url += `${url.includes('?') ? '&' : '?'}page=${pageNum}&pageSize=10`;
+            const url = `https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`;
 
             const response = await fetch(url, {
                 credentials: 'include',
@@ -59,7 +46,7 @@ const RankRaces = () => {
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
             }
             
             const data = await response.json();
@@ -87,7 +74,7 @@ const RankRaces = () => {
         } finally {
             setIsLoadingRaces(false);
         }
-    }, [activeTab, leagueId, races.length]);
+    }, [races.length]);
 
     useEffect(() => {
         fetchRaces(1);
@@ -95,7 +82,7 @@ const RankRaces = () => {
             fetchRaces(1);
         }, 30000);
         return () => clearInterval(interval);
-    }, [fetchRaces, activeTab, leagueId]);
+    }, [fetchRaces]);
 
     const loadMore = useCallback(() => {
         if (!isLoadingRaces && hasMore) {
@@ -114,17 +101,6 @@ const RankRaces = () => {
 
     const handleStateFilterChange = useCallback((event) => {
         setStateFilter(event.target.value);
-    }, []);
-
-    const handleTabChange = useCallback((event, newValue) => {
-        setActiveTab(newValue);
-        setPage(1);
-        setRaces([]);
-        setHasMore(true);
-    }, []);
-
-    const handleLeagueIdChange = useCallback((event) => {
-        setLeagueId(event.target.value);
     }, []);
 
     const filteredRaces = useMemo(() => {
@@ -148,30 +124,7 @@ const RankRaces = () => {
 
     return (
         <Box>
-            <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
-                <Tab label="Official Races" value="official" />
-                <Tab label="League Races" value="league" />
-            </Tabs>
-
-            {activeTab === 'league' && (
-                <FormControl sx={{ minWidth: 120, mb: 2 }}>
-                    <InputLabel>League ID</InputLabel>
-                    <Select value={leagueId} onChange={handleLeagueIdChange}>
-                        <MenuItem value="">
-                            <em>None</em>
-                        </MenuItem>
-                        <MenuItem value="1">League 1</MenuItem>
-                        <MenuItem value="2">League 2</MenuItem>
-                        <MenuItem value="3">League 3</MenuItem>
-                    </Select>
-                </FormControl>
-            )}
-
-            {activeTab === 'league' && !leagueId && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                    Please select a League ID to view league races.
-                </Alert>
-            )}
+            <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
@@ -245,12 +198,10 @@ const RankRaces = () => {
                                         <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
                                         <Typography><strong>State:</strong> {race.state}</Typography>
                                         <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers}</Typography>
-                                        {race.kind && <Typography><strong>Race Kind:</strong> {race.kind}</Typography>}
-                                        {activeTab === 'official' && (
-                                            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                                Series ID: {race.seriesId} | Season ID: {race.seasonId}
-                                            </Typography>
-                                        )}
+                                        <Typography><strong>Race Kind:</strong> {race.kind}</Typography>
+                                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                                        </Typography>
                                     </CardContent>
                                 </Card>
                             </Grid>
