@@ -15,19 +15,33 @@ class IracingApi {
         this.authTokenRefreshInterval = 45 * 60 * 1000;
 
         // Bind all methods to ensure correct 'this' context
+        console.log('IracingApi instantiated', this);
         this.login = this.login.bind(this);
+        console.log('IracingApi instantiated', this);
         this.encodePassword = this.encodePassword.bind(this);
+        console.log('IracingApi instantiated', this);
         this.getData = this.getData.bind(this);
+        console.log('IracingApi instantiated', this);
         this.searchDrivers = this.searchDrivers.bind(this);
+        console.log('IracingApi instantiated', this);
         this.getOfficialRaces = this.getOfficialRaces.bind(this);
+        console.log('IracingApi instantiated', this);
         this.getRaceState = this.getRaceState.bind(this);
+        console.log('IracingApi instantiated', this);
         this.getKindFromCategory = this.getKindFromCategory.bind(this);
+        console.log('IracingApi instantiated', this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
+        console.log('IracingApi instantiated', this);
         this.paginateRaces = this.paginateRaces.bind(this);
+        console.log('IracingApi instantiated', this);
         this.getCarClasses = this.getCarClasses.bind(this);
+        console.log('IracingApi instantiated', this);
         this.getSeriesDetails = this.getSeriesDetails.bind(this);
+        console.log('IracingApi instantiated', this);
         this.getSeasonDetails = this.getSeasonDetails.bind(this);
+        console.log('IracingApi instantiated', this);
         this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
+        console.log('IracingApi instantiated', this);
         this.refreshAuthToken = this.refreshAuthToken.bind(this);
     }
 

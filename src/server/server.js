@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const IracingApi = require('./iRacingApi');
+const IracingApi = require('./iRacingApi'); // Ensure the path is correct
 const NodeCache = require('node-cache');
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +31,7 @@ app.use(cors({
 
 console.log('CORS middleware has been successfully applied to the application.');
 
-const iracingApi = new IracingApi();
+const iracingApi = new IracingApi(); // Correct instantiation of the IracingApi class
 
 let isAuthenticated = false;
 
