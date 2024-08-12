@@ -15,7 +15,7 @@ class IracingApi {
         this.authTokenRefreshInterval = 45 * 60 * 1000;
 
         // No need to bind these functions anymore, arrow functions take care of this
-        this.login = this.login.bind(this);
+        // this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
         this.searchDrivers = this.searchDrivers.bind(this);
@@ -25,7 +25,17 @@ class IracingApi {
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.paginateRaces = this.paginateRaces.bind(this);
         this.getCarClasses = this.getCarClasses.bind(this);
-        this.getSeriesDetails = this.getSeriesDetails.bind(this);
+        this.getSeriesDetails = async (seriesId) => {
+            console.log(`Fetching series details for seriesId: ${seriesId}`);
+            try {
+                const seriesData = await this.getData('series/get', { series_id: seriesId });
+                console.log('Series details fetched:', seriesData);
+                return seriesData;
+            } catch (error) {
+                console.error('Error fetching series details:', error);
+                throw error;
+            }
+        };
         this.getSeasonDetails = this.getSeasonDetails.bind(this);
         this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
         this.refreshAuthToken = this.refreshAuthToken.bind(this);
