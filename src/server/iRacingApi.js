@@ -127,32 +127,37 @@ class IracingApi {
                 return this.paginateRaces(cachedData, page, pageSize);
             }
     
-            let raceGuideData = await this.getData('season/race_guide', {
+            console.log('Fetching race guide data...');
+            let raceGuideData = await this.retryApiCall(() => this.getData('season/race_guide', {
                 from: currentTime,
                 include_end_after_from: true
-            });
+            }));
     
             if (raceGuideData.link) {
                 console.log('Fetching detailed race guide data from provided link');
-                const response = await axios.get(raceGuideData.link);
-                raceGuideData = response.data;
+                raceGuideData = await this.retryApiCall(() => axios.get(raceGuideData.link));
+                raceGuideData = raceGuideData.data;
             }
     
             if (!Array.isArray(raceGuideData.sessions)) {
+                console.error('Invalid race guide data structure:', raceGuideData);
                 throw new Error('Invalid race guide data structure');
             }
     
             console.log(`Total sessions: ${raceGuideData.sessions.length}`);
     
-            let seriesData = await this.getData('series/get');
+            console.log('Fetching series data...');
+            let seriesData = await this.retryApiCall(() => this.getData('series/get'));
             if (seriesData.link) {
                 console.log('Fetching detailed series data from provided link');
-                const response = await axios.get(seriesData.link);
-                seriesData = response.data;
+                seriesData = await this.retryApiCall(() => axios.get(seriesData.link));
+                seriesData = seriesData.data;
             }
 
+            console.log('Fetching car class data...');
             const carClassData = await this.getCarClasses();
             
+            console.log('Processing race data...');
             const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
                 const state = this.getRaceState(race);
                 if (state !== 'practice' && state !== 'qualifying') {
@@ -160,10 +165,12 @@ class IracingApi {
                 }
     
                 const series = seriesData.find(s => s.series_id === race.series_id) || {};
-                const seasonData = await this.getData('series/seasons', { series_id: race.series_id });
+                console.log(`Fetching season data for series ID: ${race.series_id}`);
+                const seasonData = await this.retryApiCall(() => this.getData('series/seasons', { series_id: race.series_id }));
                 const season = Array.isArray(seasonData) ? seasonData.find(s => s.season_id === race.season_id) : {};
                 const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
 
+                console.log(`Processed race: ${series.series_name || race.series_name || 'Unknown Series'}`);
                 return {
                     name: series.series_name || race.series_name || 'Unknown Series',
                     description: series.series_short_name || 'Unknown',
@@ -199,6 +206,24 @@ class IracingApi {
             console.error('Error fetching official races:', error);
             throw error;
         }
+    }
+
+    async retryApiCall(apiCall, retries = 3, initialDelay = 1000) {
+        let delay = initialDelay;
+        for (let i = 0; i < retries; i++) {
+            try {
+                return await apiCall();
+            } catch (error) {
+                if (i === retries - 1) throw error;
+                console.log(`API call failed, retrying in ${delay}ms...`);
+                await this.delay(delay);
+                delay *= 2; // Exponential backoff
+            }
+        }
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     async getCarClasses() {

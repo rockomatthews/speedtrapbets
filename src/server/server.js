@@ -162,7 +162,8 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         logError(error);
         response.status(500).json({
             error: 'An error occurred while fetching official races',
-            details: error.message
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
