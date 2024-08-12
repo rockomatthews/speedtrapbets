@@ -10,8 +10,9 @@ class IracingApi {
             baseURL: this.baseUrl,
             withCredentials: true,
         });
-        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 }); // 5 minutes cache, check every 60 seconds
+        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
+        this.authTokenRefreshInterval = 45 * 60 * 1000; // 45 minutes
 
         // Bind all methods to ensure correct 'this' context
         this.login = this.login.bind(this);
@@ -24,6 +25,8 @@ class IracingApi {
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.paginateRaces = this.paginateRaces.bind(this);
         this.getCarClasses = this.getCarClasses.bind(this);
+        this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
+        this.refreshAuthToken = this.refreshAuthToken.bind(this);
     }
 
     async login(username, password) {
@@ -43,6 +46,7 @@ class IracingApi {
                 }
                 this.session.defaults.headers.Cookie = this.authCookie;
                 console.log('Authentication cookie set successfully');
+                this.startAuthTokenRefresh(); // Start refreshing token periodically
             } else {
                 throw new Error('No cookies received in authentication response');
             }
@@ -52,6 +56,21 @@ class IracingApi {
         } catch (error) {
             console.error('Login failed:', error.response ? error.response.data : error.message);
             throw error;
+        }
+    }
+
+    startAuthTokenRefresh() {
+        console.log('Starting auth token refresh cycle');
+        this.refreshTokenInterval = setInterval(this.refreshAuthToken, this.authTokenRefreshInterval);
+    }
+
+    async refreshAuthToken() {
+        try {
+            console.log('Refreshing auth token');
+            await this.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
+        } catch (error) {
+            console.error('Failed to refresh auth token:', error);
+            clearInterval(this.refreshTokenInterval); // Stop trying to refresh if we fail
         }
     }
 

@@ -32,11 +32,13 @@ const RankRaces = () => {
     const [snackbarMessage, setSnackbarMessage] = useState('');
 
     // Function to fetch races from the API, with error handling and state management
-    const fetchRaces = useCallback(async (pageNum) => {
+    const fetchRaces = useCallback(async (pageNum, refresh = false) => {
         setIsLoadingRaces(true);
         setError('');
         try {
-            const url = `https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`;
+            const url = refresh 
+                ? `https://speedtrapbets.onrender.com/api/refresh-races`
+                : `https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`;
 
             const response = await fetch(url, {
                 credentials: 'include',
@@ -54,7 +56,7 @@ const RankRaces = () => {
             const data = await response.json();
             
             if (data.races && Array.isArray(data.races)) {
-                if (pageNum === 1) {
+                if (pageNum === 1 || refresh) {
                     setRaces(data.races);
                 } else {
                     setRaces(prevRaces => [...prevRaces, ...data.races]);
@@ -78,13 +80,9 @@ const RankRaces = () => {
         }
     }, [races.length]);
 
-    // Initial fetch and periodic update of race data
+    // Initial fetch of race data
     useEffect(() => {
         fetchRaces(1);
-        const interval = setInterval(() => {
-            fetchRaces(1);
-        }, 30000);
-        return () => clearInterval(interval);
     }, [fetchRaces]);
 
     // Throttled function to load more races when the user scrolls or interacts
@@ -137,6 +135,12 @@ const RankRaces = () => {
         fetchRaces(1);
     }, [fetchRaces]);
 
+    // Handle manual refresh of races
+    const handleRefresh = useCallback(() => {
+        setPage(1);  // Reset the page to 1 when refreshing
+        fetchRaces(1, true);
+    }, [fetchRaces]);
+
     return (
         <Box>
             <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
@@ -174,6 +178,17 @@ const RankRaces = () => {
                         <MenuItem value="qualifying">Qualifying</MenuItem>
                     </Select>
                 </FormControl>
+            </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                <Button
+                    onClick={handleRefresh}
+                    variant="contained"
+                    color="primary"
+                    disabled={isLoadingRaces}
+                >
+                    {isLoadingRaces ? 'Refreshing...' : 'Refresh Races'}
+                </Button>
             </Box>
 
             {error && (
