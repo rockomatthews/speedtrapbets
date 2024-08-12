@@ -68,7 +68,7 @@ class IracingApi {
             console.log(`Returning cached data for ${endpoint}`);
             return cachedData;
         }
-
+    
         for (let i = 0; i < retries; i++) {
             try {
                 await this.rateLimiter.removeTokens(1);
@@ -83,6 +83,22 @@ class IracingApi {
                     }
                 });
                 console.log(`API Response from ${endpoint}:`, response.data);
+    
+                // Check if the API response contains a link
+                if (response.data && response.data.link) {
+                    console.log(`Following link for ${endpoint}:`, response.data.link);
+                    try {
+                        const linkResponse = await axios.get(response.data.link);
+                        console.log(`Data fetched from link for ${endpoint}`);
+                        this.cache.set(cacheKey, linkResponse.data);
+                        return linkResponse.data;
+                    } catch (linkError) {
+                        console.error(`Error fetching data from link for ${endpoint}:`, linkError.message);
+                        throw linkError;
+                    }
+                }
+    
+                // If no link, return the original response data
                 this.cache.set(cacheKey, response.data);
                 return response.data;
             } catch (error) {
@@ -93,6 +109,8 @@ class IracingApi {
                 } else if (i === retries - 1) {
                     console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
                     throw error;
+                } else {
+                    console.log(`Error occurred while fetching ${endpoint}. Retrying... (Attempt ${i + 1}/${retries})`);
                 }
             }
         }
@@ -153,10 +171,23 @@ class IracingApi {
                 seriesData = await this.retryApiCall(() => axios.get(seriesData.link));
                 seriesData = seriesData.data;
             }
-
+    
             console.log('Fetching car class data...');
             const carClassData = await this.getCarClasses();
-            
+    
+            console.log('Fetching track data...');
+            let trackData = await this.retryApiCall(() => this.getData('track/get'));
+            if (trackData.link) {
+                console.log('Fetching detailed track data from provided link');
+                const trackResponse = await this.retryApiCall(() => axios.get(trackData.link));
+                trackData = trackResponse.data;
+            }
+    
+            if (!Array.isArray(trackData)) {
+                console.error('Invalid track data structure:', trackData);
+                throw new Error('Invalid track data structure');
+            }
+    
             console.log('Processing race data...');
             const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
                 const state = this.getRaceState(race);
@@ -175,11 +206,9 @@ class IracingApi {
                     season = seasonData.find(s => s.season_id === race.season_id);
                 }
                 const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
-
-                // Fetch track data
-                const trackData = await this.retryApiCall(() => this.getData('track/get'));
+    
                 const track = trackData.find(t => t.track_id === season.track.track_id) || {};
-
+    
                 console.log(`Processed race: ${series.series_name || race.series_name || 'Unknown Series'}`);
                 return {
                     name: series.series_name || race.series_name || 'Unknown Series',
