@@ -1,5 +1,5 @@
 const axios = require('axios');
-// const crypto = require('crypto');
+const crypto = require('crypto');
 const NodeCache = require('node-cache');
 const { RateLimiter } = require('limiter');
 
@@ -14,39 +14,25 @@ class IracingApi {
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
         this.authTokenRefreshInterval = 45 * 60 * 1000;
 
-        // Bind all methods to ensure correct 'this' context
-        console.log('IracingApi instantiated', this);
+        // No need to bind these functions anymore, arrow functions take care of this
         this.login = this.login.bind(this);
-        console.log('IracingApi instantiated', this);
         this.encodePassword = this.encodePassword.bind(this);
-        console.log('IracingApi instantiated', this);
         this.getData = this.getData.bind(this);
-        console.log('IracingApi instantiated', this);
         this.searchDrivers = this.searchDrivers.bind(this);
-        console.log('IracingApi instantiated', this);
         this.getOfficialRaces = this.getOfficialRaces.bind(this);
-        console.log('IracingApi instantiated', this);
         this.getRaceState = this.getRaceState.bind(this);
-        console.log('IracingApi instantiated', this);
         this.getKindFromCategory = this.getKindFromCategory.bind(this);
-        console.log('IracingApi instantiated', this);
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
-        console.log('IracingApi instantiated', this);
         this.paginateRaces = this.paginateRaces.bind(this);
-        console.log('IracingApi instantiated', this);
         this.getCarClasses = this.getCarClasses.bind(this);
-        console.log('IracingApi instantiated', this);
         this.getSeriesDetails = this.getSeriesDetails.bind(this);
-        console.log('IracingApi instantiated', this);
         this.getSeasonDetails = this.getSeasonDetails.bind(this);
-        console.log('IracingApi instantiated', this);
         this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
-        console.log('IracingApi instantiated', this);
         this.refreshAuthToken = this.refreshAuthToken.bind(this);
     }
 
-    // Method to log in to the iRacing API
-    async login(username, password) {
+    // Arrow functions automatically bind `this` from the surrounding context
+    login = async (username, password) => {
         try {
             console.log(`Attempting to log in user: ${username}`);
             const encodedPassword = this.encodePassword(username, password);
@@ -54,7 +40,6 @@ class IracingApi {
                 email: username,
                 password: encodedPassword,
             });
-            
             const cookies = response.headers['set-cookie'];
             if (cookies) {
                 this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
@@ -63,11 +48,9 @@ class IracingApi {
                 }
                 this.session.defaults.headers.Cookie = this.authCookie;
                 console.log('Authentication cookie set successfully');
-                this.startAuthTokenRefresh(); // Start refreshing token periodically
             } else {
                 throw new Error('No cookies received in authentication response');
             }
-
             console.log('Login successful');
             return response.data;
         } catch (error) {
@@ -76,32 +59,19 @@ class IracingApi {
         }
     }
 
-    // Method to periodically refresh the authentication token
-    startAuthTokenRefresh() {
-        console.log('Starting auth token refresh cycle');
-        this.refreshTokenInterval = setInterval(this.refreshAuthToken, this.authTokenRefreshInterval);
+    encodePassword = (username, password) => {
+        const lowerEmail = username.toLowerCase();
+        const hash = crypto.createHash('sha256').update(password + lowerEmail).digest();
+        return hash.toString('base64');
     }
 
-    // Method to refresh the authentication token
-    async refreshAuthToken() {
-        try {
-            console.log('Refreshing auth token');
-            await this.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
-        } catch (error) {
-            console.error('Failed to refresh auth token:', error);
-            clearInterval(this.refreshTokenInterval); // Stop trying to refresh if we fail
-        }
-    }
-
-    // Method to fetch data from the iRacing API with retry logic
-    async getData(endpoint, params = {}, retries = 3) {
+    getData = async (endpoint, params = {}, retries = 3) => {
         const cacheKey = `${endpoint}-${JSON.stringify(params)}`;
         const cachedData = this.cache.get(cacheKey);
         if (cachedData) {
             console.log(`Returning cached data for ${endpoint}`);
             return cachedData;
         }
-    
         for (let i = 0; i < retries; i++) {
             try {
                 await this.rateLimiter.removeTokens(1);
@@ -109,15 +79,13 @@ class IracingApi {
                     throw new Error('Not authenticated. Please login first.');
                 }
                 console.log(`Sending request to ${endpoint} with auth cookie:`, this.authCookie);
-                const response = await this.session.get(`data/${endpoint}`, { 
+                const response = await this.session.get(`data/${endpoint}`, {
                     params,
                     headers: {
                         Cookie: this.authCookie
                     }
                 });
                 console.log(`API Response from ${endpoint}:`, response.data);
-    
-                // Check if the API response contains a link
                 if (response.data && response.data.link) {
                     console.log(`Following link for ${endpoint}:`, response.data.link);
                     try {
@@ -130,8 +98,6 @@ class IracingApi {
                         throw linkError;
                     }
                 }
-    
-                // If no link, return the original response data
                 this.cache.set(cacheKey, response.data);
                 return response.data;
             } catch (error) {
@@ -150,8 +116,20 @@ class IracingApi {
         throw new Error(`Failed to fetch data from ${endpoint} after ${retries} retries`);
     }
 
-    // Method to fetch official races from the iRacing API
-    async getOfficialRaces(page = 1, pageSize = 10) {
+    searchDrivers = async (searchTerm) => {
+        console.log(`Searching for driver with term: ${searchTerm}`);
+        const params = { search_term: searchTerm };
+        const data = await this.getData('lookup/drivers', params);
+        if (data && data.link) {
+            console.log('Fetching driver data from provided link');
+            const response = await axios.get(data.link);
+            console.log('Driver search results:', response.data);
+            return response.data;
+        }
+        return data;
+    }
+
+    getOfficialRaces = async (page = 1, pageSize = 10) => {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             
