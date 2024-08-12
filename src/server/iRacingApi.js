@@ -1,20 +1,29 @@
 const axios = require('axios');
-const crypto = require('crypto');
+// const crypto = require('crypto');
 const NodeCache = require('node-cache');
 const { RateLimiter } = require('limiter');
 
 class IracingApi {
     constructor() {
+        // Base URL for the iRacing API
         this.baseUrl = 'https://members-ng.iracing.com/';
+        
+        // Create an Axios instance with specific configuration for iRacing API
         this.session = axios.create({
             baseURL: this.baseUrl,
-            withCredentials: true,
+            withCredentials: true, // Include credentials for authenticated requests
         });
-        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+        
+        // Initialize a cache to store API responses and reduce load on the API
+        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 }); // Cache items for 5 minutes
+        
+        // Rate limiter to prevent hitting API rate limits, allowing 5 requests per second
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
+        
+        // Set interval for refreshing authentication tokens
         this.authTokenRefreshInterval = 45 * 60 * 1000; // 45 minutes
 
-        // Bind all methods to ensure correct 'this' context
+        // Bind methods to ensure correct 'this' context when methods are called
         this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
@@ -25,10 +34,13 @@ class IracingApi {
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.paginateRaces = this.paginateRaces.bind(this);
         this.getCarClasses = this.getCarClasses.bind(this);
+        this.getSeriesDetails = this.getSeriesDetails.bind(this);
+        this.getSeasonDetails = this.getSeasonDetails.bind(this);
         this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
         this.refreshAuthToken = this.refreshAuthToken.bind(this);
     }
 
+    // Method to log in to the iRacing API
     async login(username, password) {
         try {
             console.log(`Attempting to log in user: ${username}`);
@@ -59,11 +71,13 @@ class IracingApi {
         }
     }
 
+    // Method to periodically refresh the authentication token
     startAuthTokenRefresh() {
         console.log('Starting auth token refresh cycle');
         this.refreshTokenInterval = setInterval(this.refreshAuthToken, this.authTokenRefreshInterval);
     }
 
+    // Method to refresh the authentication token
     async refreshAuthToken() {
         try {
             console.log('Refreshing auth token');
@@ -74,12 +88,7 @@ class IracingApi {
         }
     }
 
-    encodePassword(username, password) {
-        const lowerEmail = username.toLowerCase();
-        const hash = crypto.createHash('sha256').update(password + lowerEmail).digest();
-        return hash.toString('base64');
-    }
-
+    // Method to fetch data from the iRacing API with retry logic
     async getData(endpoint, params = {}, retries = 3) {
         const cacheKey = `${endpoint}-${JSON.stringify(params)}`;
         const cachedData = this.cache.get(cacheKey);
@@ -136,21 +145,7 @@ class IracingApi {
         throw new Error(`Failed to fetch data from ${endpoint} after ${retries} retries`);
     }
 
-    async searchDrivers(searchTerm) {
-        console.log(`Searching for driver with term: ${searchTerm}`);
-        const params = { search_term: searchTerm };
-        const data = await this.getData('lookup/drivers', params);
-        
-        if (data && data.link) {
-            console.log('Fetching driver data from provided link');
-            const response = await axios.get(data.link);
-            console.log('Driver search results:', response.data);
-            return response.data;
-        }
-        
-        return data;
-    }
-
+    // Method to fetch official races from the iRacing API
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
@@ -215,15 +210,8 @@ class IracingApi {
                 }
 
                 const series = seriesData.find(s => s.series_id === race.series_id) || {};
-                console.log(`Fetching season data for series ID: ${race.series_id}`);
-                const seasonData = await this.retryApiCall(() => this.getData('series/seasons', { series_id: race.series_id }));
-                let season;
-                if (seasonData.link) {
-                    const seasonResponse = await this.retryApiCall(() => axios.get(seasonData.link));
-                    season = seasonResponse.data.find(s => s.season_id === race.season_id);
-                } else {
-                    season = seasonData.find(s => s.season_id === race.season_id);
-                }
+                const season = await this.getSeasonDetails(race.series_id, race.season_id);
+
                 const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
 
                 let track = { track_name: 'Unknown Track', config_name: '' };
@@ -253,22 +241,18 @@ class IracingApi {
                     carNames: carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
                 };
             }));
-
-            // Filter out any null races that didn't meet the criteria
+    
             const filteredRaces = relevantRaces.filter(race => race !== null);
             console.log(`Relevant races: ${filteredRaces.length}`);
-
-            // Sort the races to prioritize qualifying sessions, then by start time
+    
             filteredRaces.sort((a, b) => {
                 if (a.state === 'qualifying' && b.state !== 'qualifying') return -1;
                 if (a.state !== 'qualifying' && b.state === 'qualifying') return 1;
                 return new Date(a.startTime) - new Date(b.startTime);
             });
-
-            // Cache the filtered race data
+    
             this.cache.set(cacheKey, filteredRaces);
-
-            // Paginate the races and return the relevant page
+    
             return this.paginateRaces(filteredRaces, page, pageSize);
         } catch (error) {
             console.error('Error fetching official races:', error);
@@ -276,47 +260,71 @@ class IracingApi {
         }
     }
 
-    async retryApiCall(apiCall, retries = 3, initialDelay = 1000) {
-        let delay = initialDelay;
-        for (let i = 0; i < retries; i++) {
-            try {
-                return await apiCall();
-            } catch (error) {
-                if (i === retries - 1) throw error;
-                console.log(`API call failed, retrying in ${delay}ms...`);
-                await this.delay(delay);
-                delay *= 2; // Exponential backoff for each retry
-            }
+    // Method to fetch detailed season data based on seriesId and seasonId
+    async getSeasonDetails(seriesId, seasonId) {
+        console.log(`Fetching season details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
+        const seasonData = await this.getData('series/seasons', { series_id: seriesId });
+        
+        let seasonDetails;
+        if (seasonData.link) {
+            const seasonResponse = await this.retryApiCall(() => axios.get(seasonData.link));
+            seasonDetails = seasonResponse.data.find(s => s.season_id === seasonId);
+        } else {
+            seasonDetails = seasonData.find(s => s.season_id === seasonId);
         }
+
+        if (!seasonDetails) {
+            console.error('Season details not found:', seasonId);
+            throw new Error(`Season details not found for seasonId: ${seasonId}`);
+        }
+
+        console.log('Season details fetched:', seasonDetails);
+        return seasonDetails;
     }
 
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    // Method to determine the race kind/category based on categoryId
+    getKindFromCategory(categoryId) {
+        const categoryMap = {
+            1: 'oval',
+            2: 'road',
+            3: 'dirt_oval',
+            4: 'dirt_road',
+            5: 'sports_car'
+        };
+        return categoryMap[categoryId] || 'unknown';
     }
 
+    // Method to map license level to a class
+    mapLicenseLevelToClass(licenseGroup) {
+        const licenseMap = {
+            5: 'R',   // Rookie
+            4: 'D',
+            3: 'C',
+            2: 'B',
+            1: 'A'
+        };
+        return licenseGroup !== undefined ? (licenseMap[licenseGroup] || 'Unknown') : 'Unknown';
+    }
+
+    // Method to fetch car classes
     async getCarClasses() {
-        try {
-            const cacheKey = 'car-classes';
-            const cachedData = this.cache.get(cacheKey);
-            
-            if (cachedData) {
-                return cachedData;
-            }
-
-            let carClassData = await this.getData('carclass/get');
-            if (carClassData.link) {
-                console.log('Fetching detailed car class data from provided link');
-                const response = await axios.get(carClassData.link);
-                carClassData = response.data;
-            }
-            this.cache.set(cacheKey, carClassData);
-            return carClassData;
-        } catch (error) {
-            console.error('Error fetching car classes:', error);
-            throw error;
+        const cacheKey = 'car-classes';
+        const cachedData = this.cache.get(cacheKey);
+        if (cachedData) {
+            return cachedData;
         }
+
+        let carClassData = await this.getData('carclass/get');
+        if (carClassData.link) {
+            console.log('Fetching detailed car class data from provided link');
+            const response = await axios.get(carClassData.link);
+            carClassData = response.data;
+        }
+        this.cache.set(cacheKey, carClassData);
+        return carClassData;
     }
-    
+
+    // Method to paginate races
     paginateRaces(races, page, pageSize) {
         const startIndex = (page - 1) * pageSize;
         const paginatedRaces = races.slice(startIndex, startIndex + pageSize);
@@ -329,6 +337,7 @@ class IracingApi {
         };
     }
 
+    // Method to determine the current race state (e.g., practice, qualifying, in_progress)
     getRaceState(race) {
         const currentTime = new Date();
         const startTime = new Date(race.start_time);
@@ -346,26 +355,24 @@ class IracingApi {
         }
     }
 
-    getKindFromCategory(categoryId) {
-        const categoryMap = {
-            1: 'oval',
-            2: 'road',
-            3: 'dirt_oval',
-            4: 'dirt_road',
-            5: 'sports_car'
-        };
-        return categoryMap[categoryId] || 'unknown';
+    // Method to handle retrying API calls with exponential backoff
+    async retryApiCall(apiCall, retries = 3, initialDelay = 1000) {
+        let delay = initialDelay;
+        for (let i = 0; i < retries; i++) {
+            try {
+                return await apiCall();
+            } catch (error) {
+                if (i === retries - 1) throw error;
+                console.log(`API call failed, retrying in ${delay}ms...`);
+                await this.delay(delay);
+                delay *= 2; // Exponential backoff
+            }
+        }
     }
 
-    mapLicenseLevelToClass(licenseGroup) {
-        const licenseMap = {
-            5: 'R',   // Rookie
-            4: 'D',
-            3: 'C',
-            2: 'B',
-            1: 'A'
-        };
-        return licenseGroup !== undefined ? (licenseMap[licenseGroup] || 'Unknown') : 'Unknown';
+    // Method to introduce delay
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

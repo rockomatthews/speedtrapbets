@@ -56,6 +56,7 @@ function logError(error, req = null) {
         await iracingApi.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
         console.log('Authentication with iRacing API was successful.');
         isAuthenticated = true;
+        iracingApi.startAuthTokenRefresh(); // Start the automatic token refresh process
     } catch (error) {
         console.error('Authentication with iRacing API failed:', error);
         logError(error);

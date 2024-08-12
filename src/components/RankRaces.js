@@ -255,7 +255,7 @@ const RankRaces = () => {
             )}
 
             {lastUpdated && (
-                <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>
+                <Typography variant="caption" sx={{ mt: 2, display: "block" }}>
                     Last updated: {lastUpdated.toLocaleString()}
                 </Typography>
             )}
