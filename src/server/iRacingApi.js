@@ -189,45 +189,51 @@ class IracingApi {
             }
     
             console.log('Processing race data...');
-            const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
-                const state = this.getRaceState(race);
-                if (state !== 'practice' && state !== 'qualifying') {
-                    return null;
+        const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
+            const state = this.getRaceState(race);
+            if (state !== 'practice' && state !== 'qualifying') {
+                return null;
+            }
+
+            const series = seriesData.find(s => s.series_id === race.series_id) || {};
+            console.log(`Fetching season data for series ID: ${race.series_id}`);
+            const seasonData = await this.retryApiCall(() => this.getData('series/seasons', { series_id: race.series_id }));
+            let season;
+            if (seasonData.link) {
+                const seasonResponse = await this.retryApiCall(() => axios.get(seasonData.link));
+                season = seasonResponse.data.find(s => s.season_id === race.season_id);
+            } else {
+                season = seasonData.find(s => s.season_id === race.season_id);
+            }
+            const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
+
+            let track = { track_name: 'Unknown Track', config_name: '' };
+            if (season && season.track && season.track.track_id) {
+                const foundTrack = trackData.find(t => t.track_id === season.track.track_id);
+                if (foundTrack) {
+                    track = foundTrack;
                 }
-    
-                const series = seriesData.find(s => s.series_id === race.series_id) || {};
-                console.log(`Fetching season data for series ID: ${race.series_id}`);
-                const seasonData = await this.retryApiCall(() => this.getData('series/seasons', { series_id: race.series_id }));
-                let season;
-                if (seasonData.link) {
-                    const seasonResponse = await this.retryApiCall(() => axios.get(seasonData.link));
-                    season = seasonResponse.data.find(s => s.season_id === race.season_id);
-                } else {
-                    season = seasonData.find(s => s.season_id === race.season_id);
-                }
-                const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
-    
-                const track = trackData.find(t => t.track_id === season.track.track_id) || {};
-    
-                console.log(`Processed race: ${series.series_name || race.series_name || 'Unknown Series'}`);
-                return {
-                    name: series.series_name || race.series_name || 'Unknown Series',
-                    description: series.series_short_name || 'Unknown',
-                    licenseLevel: this.mapLicenseLevelToClass(season.license_group),
-                    startTime: race.start_time,
-                    state: state,
-                    sessionMinutes: race.duration,
-                    registeredDrivers: race.entry_count,
-                    maxDrivers: race.max_entry_count || 0,
-                    seriesId: race.series_id,
-                    seasonId: race.season_id,
-                    categoryId: race.category_id,
-                    kind: this.getKindFromCategory(race.category_id),
-                    trackName: track.track_name || 'Unknown Track',
-                    trackConfig: track.config_name || '',
-                    carNames: carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
-                };
-            }));
+            }
+
+            console.log(`Processed race: ${series.series_name || race.series_name || 'Unknown Series'}`);
+            return {
+                name: series.series_name || race.series_name || 'Unknown Series',
+                description: series.series_short_name || 'Unknown',
+                licenseLevel: this.mapLicenseLevelToClass(season ? season.license_group : undefined),
+                startTime: race.start_time,
+                state: state,
+                sessionMinutes: race.duration,
+                registeredDrivers: race.entry_count,
+                maxDrivers: race.max_entry_count || 0,
+                seriesId: race.series_id,
+                seasonId: race.season_id,
+                categoryId: race.category_id,
+                kind: this.getKindFromCategory(race.category_id),
+                trackName: track.track_name,
+                trackConfig: track.config_name,
+                carNames: carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
+            };
+        }));
     
             const filteredRaces = relevantRaces.filter(race => race !== null);
             console.log(`Relevant races: ${filteredRaces.length}`);
@@ -336,7 +342,7 @@ class IracingApi {
             2: 'B',
             1: 'A'
         };
-        return licenseMap[licenseGroup] || 'unknown';
+        return licenseGroup !== undefined ? (licenseMap[licenseGroup] || 'Unknown') : 'Unknown';
     }
 }
 
