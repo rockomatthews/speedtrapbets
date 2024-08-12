@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import _ from 'lodash';
 import { 
     Typography, 
     Box, 
@@ -30,6 +31,7 @@ const RankRaces = () => {
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
 
+    // Function to fetch races from the API, with error handling and state management
     const fetchRaces = useCallback(async (pageNum) => {
         setIsLoadingRaces(true);
         setError('');
@@ -76,6 +78,7 @@ const RankRaces = () => {
         }
     }, [races.length]);
 
+    // Initial fetch and periodic update of race data
     useEffect(() => {
         fetchRaces(1);
         const interval = setInterval(() => {
@@ -84,6 +87,7 @@ const RankRaces = () => {
         return () => clearInterval(interval);
     }, [fetchRaces]);
 
+    // Throttled function to load more races when the user scrolls or interacts
     const loadMore = useCallback(() => {
         if (!isLoadingRaces && hasMore) {
             setPage(prevPage => prevPage + 1);
@@ -91,18 +95,27 @@ const RankRaces = () => {
         }
     }, [isLoadingRaces, hasMore, page, fetchRaces]);
 
+    // Applying throttle to the loadMore function to avoid excessive calls
+    const throttledLoadMore = useMemo(() => {
+        return _.throttle(loadMore, 1000); // Throttle calls to once per second
+    }, [loadMore]);
+
+    // Handle changes to race kind filter
     const handleRaceKindFilterChange = useCallback((event) => {
         setRaceKindFilter(event.target.value);
     }, []);
 
+    // Handle changes to class filter
     const handleClassFilterChange = useCallback((event) => {
         setClassFilter(event.target.value);
     }, []);
 
+    // Handle changes to state filter
     const handleStateFilterChange = useCallback((event) => {
         setStateFilter(event.target.value);
     }, []);
 
+    // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
         return races.filter(race => 
             (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
@@ -111,6 +124,7 @@ const RankRaces = () => {
         );
     }, [races, raceKindFilter, classFilter, stateFilter]);
 
+    // Handle closing of the snackbar
     const handleSnackbarClose = useCallback((event, reason) => {
         if (reason === 'clickaway') {
             return;
@@ -118,6 +132,7 @@ const RankRaces = () => {
         setSnackbarOpen(false);
     }, []);
 
+    // Handle retrying the fetch in case of error
     const handleRetry = useCallback(() => {
         fetchRaces(1);
     }, [fetchRaces]);
@@ -210,7 +225,7 @@ const RankRaces = () => {
                     {hasMore && (
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                             <Button 
-                                onClick={loadMore} 
+                                onClick={throttledLoadMore} 
                                 disabled={isLoadingRaces}
                                 variant="contained"
                                 color="primary"

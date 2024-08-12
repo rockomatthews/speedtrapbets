@@ -19,8 +19,8 @@ try {
 // Initialize Express application
 const app = express();
 
-// Initialize cache with 1 minute Time-To-Live (TTL) and check every 2 minutes
-const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
+// Initialize cache with a slightly longer TTL for some static data, 5 minutes for dynamic data, check every 2 minutes
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 120 });
 
 // CORS (Cross-Origin Resource Sharing) configuration
 // This allows the API to be accessed from specific origins
@@ -44,15 +44,18 @@ const iracingApi = new IracingApi();
 // Authentication state
 let isAuthenticated = false;
 
-// Function for logging errors to a file
-function logError(error) {
+// Function for logging errors to a file with additional context
+function logError(error, req = null) {
     const logDir = path.join(__dirname, 'logs');
     if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir);
     }
     const logFile = path.join(logDir, 'error.log');
     const timestamp = new Date().toISOString();
-    const logEntry = `${timestamp}: ${error.stack}\n`;
+    let logEntry = `${timestamp}: ${error.stack}\n`;
+    if (req) {
+        logEntry += `Request Details: ${req.method} ${req.url}\n`;
+    }
     fs.appendFileSync(logFile, logEntry);
 }
 
@@ -81,9 +84,9 @@ const checkAuth = (req, res, next) => {
     next();
 };
 
-// Request logging middleware
+// Request logging middleware with more detailed logging
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - Received ${req.method} request for ${req.url}`);
+    console.log(`${new Date().toISOString()} - Received ${req.method} request for ${req.url} from ${req.ip}`);
     next();
 });
 
@@ -137,7 +140,7 @@ app.get('/api/search-driver', checkAuth, async (request, response) => {
         response.json(result);
     } catch (error) {
         console.error('Error occurred while searching for driver:', error);
-        logError(error);
+        logError(error, request);
         response.status(500).json({
             error: 'An error occurred while searching for the driver',
             details: error.message
@@ -159,7 +162,7 @@ app.get('/api/official-races', checkAuth, async (request, response) => {
         response.json(officialRaces);
     } catch (error) {
         console.error('Error in /api/official-races:', error);
-        logError(error);
+        logError(error, request);
         response.status(500).json({
             error: 'An error occurred while fetching official races',
             details: error.message,
@@ -179,7 +182,7 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
         response.json({ success: true, message: 'Cache refreshed successfully', data: officialRaces });
     } catch (error) {
         console.error('Error occurred while refreshing races cache:', error);
-        logError(error);
+        logError(error, request);
         response.status(500).json({
             error: 'An error occurred while refreshing races cache',
             details: error.message
@@ -187,10 +190,10 @@ app.get('/api/refresh-races', checkAuth, async (request, response) => {
     }
 });
 
-// Global error handler
+// Global error handler with request context
 app.use((err, req, res, next) => {
     console.error('Global error handler caught an unhandled error:', err.stack);
-    logError(err);
+    logError(err, req);
     res.status(500).json({
         error: 'Internal server error',
         details: process.env.NODE_ENV === 'production' 
@@ -215,13 +218,13 @@ process.on('SIGTERM', () => {
     });
 });
 
-// Unhandled rejection handler
+// Unhandled rejection handler with improved logging
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection detected. Promise:', promise, 'Reason:', reason);
     logError(new Error('Unhandled Rejection: ' + reason));
 });
 
-// Uncaught exception handler
+// Uncaught exception handler with improved logging
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception detected:', error);
     logError(error);
