@@ -167,8 +167,18 @@ class IracingApi {
                 const series = seriesData.find(s => s.series_id === race.series_id) || {};
                 console.log(`Fetching season data for series ID: ${race.series_id}`);
                 const seasonData = await this.retryApiCall(() => this.getData('series/seasons', { series_id: race.series_id }));
-                const season = Array.isArray(seasonData) ? seasonData.find(s => s.season_id === race.season_id) : {};
+                let season;
+                if (seasonData.link) {
+                    const seasonResponse = await this.retryApiCall(() => axios.get(seasonData.link));
+                    season = seasonResponse.data.find(s => s.season_id === race.season_id);
+                } else {
+                    season = seasonData.find(s => s.season_id === race.season_id);
+                }
                 const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
+
+                // Fetch track data
+                const trackData = await this.retryApiCall(() => this.getData('track/get'));
+                const track = trackData.find(t => t.track_id === season.track.track_id) || {};
 
                 console.log(`Processed race: ${series.series_name || race.series_name || 'Unknown Series'}`);
                 return {
@@ -184,8 +194,8 @@ class IracingApi {
                     seasonId: race.season_id,
                     categoryId: race.category_id,
                     kind: this.getKindFromCategory(race.category_id),
-                    trackName: season.track ? season.track.track_name : 'Unknown Track',
-                    trackConfig: season.track ? season.track.config_name : '',
+                    trackName: track.track_name || 'Unknown Track',
+                    trackConfig: track.config_name || '',
                     carNames: carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
                 };
             }));
@@ -291,11 +301,11 @@ class IracingApi {
 
     mapLicenseLevelToClass(licenseGroup) {
         const licenseMap = {
-            1: 5,
-            2: 4,
-            3: 3,
-            4: 2,
-            5: 1
+            5: 'R',   // Rookie
+            4: 'D',
+            3: 'C',
+            2: 'B',
+            1: 'A'
         };
         return licenseMap[licenseGroup] || 'unknown';
     }
