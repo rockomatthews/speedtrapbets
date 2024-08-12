@@ -37,8 +37,20 @@ class IracingApi {
             }
         };
         this.getSeasonDetails = this.getSeasonDetails.bind(this);
-        this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
-        this.refreshAuthToken = this.refreshAuthToken.bind(this);
+        this.startAuthTokenRefresh = () => {
+            console.log('Starting auth token refresh cycle...');
+            this.refreshAuthToken();
+            setInterval(this.refreshAuthToken, this.authTokenRefreshInterval);
+        };
+        this.refreshAuthToken = async () => {
+            console.log('Refreshing auth token...');
+            try {
+                await this.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
+                console.log('Auth token refreshed successfully.');
+            } catch (error) {
+                console.error('Error refreshing auth token:', error);
+            }
+        };
     }
 
     // Arrow functions automatically bind `this` from the surrounding context
