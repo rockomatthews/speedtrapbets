@@ -1,4 +1,3 @@
-// Import required modules
 const express = require('express');
 const cors = require('cors');
 const IracingApi = require('./iRacingApi');
@@ -64,6 +63,7 @@ function logError(error, req = null) {
         setTimeout(authenticateIRacing, 60000);
     }
 })();
+
 
 const checkAuth = (req, res, next) => {
     if (!isAuthenticated) {

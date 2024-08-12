@@ -5,25 +5,16 @@ const { RateLimiter } = require('limiter');
 
 class IracingApi {
     constructor() {
-        // Base URL for the iRacing API
         this.baseUrl = 'https://members-ng.iracing.com/';
-        
-        // Create an Axios instance with specific configuration for iRacing API
         this.session = axios.create({
             baseURL: this.baseUrl,
-            withCredentials: true, // Include credentials for authenticated requests
+            withCredentials: true,
         });
-        
-        // Initialize a cache to store API responses and reduce load on the API
-        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 }); // Cache items for 5 minutes
-        
-        // Rate limiter to prevent hitting API rate limits, allowing 5 requests per second
+        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
-        
-        // Set interval for refreshing authentication tokens
-        this.authTokenRefreshInterval = 45 * 60 * 1000; // 45 minutes
+        this.authTokenRefreshInterval = 45 * 60 * 1000;
 
-        // Bind methods to ensure correct 'this' context when methods are called
+        // Bind all methods to ensure correct 'this' context
         this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
