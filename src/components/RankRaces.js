@@ -125,7 +125,7 @@ const RankRaces = () => {
     // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
         const filtered = races.filter(race => 
-            (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
+            (raceKindFilter === 'all' || race.category === raceKindFilter) &&
             (classFilter === 'all' || race.licenseLevel === classFilter) &&
             (stateFilter === 'all' || race.state === stateFilter)
         );
@@ -161,18 +161,18 @@ const RankRaces = () => {
             <Grid item xs={12} key={index}>
                 <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
                     <CardContent>
-                        <Typography variant="h6" gutterBottom>{race.name}</Typography>
+                        <Typography variant="h6" gutterBottom>{race.series_name || race.name || 'Unknown Race'}</Typography>
                         <Divider sx={{ my: 1 }} />
                         <Typography><strong>License Level:</strong> {race.licenseLevel || 'Unknown'}</Typography>
-                        <Typography><strong>Track:</strong> {race.trackName || 'Unknown'} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                        <Typography><strong>Track:</strong> {race.track_name || 'Unknown'} {race.config_name && `(${race.config_name})`}</Typography>
                         <Typography><strong>Cars:</strong> {race.carNames || 'Unknown'}</Typography>
-                        <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
+                        <Typography><strong>Start Time:</strong> {new Date(race.start_time || race.startTime).toLocaleString()}</Typography>
                         <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
                         <Typography><strong>State:</strong> {race.state || 'Unknown'}</Typography>
-                        <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
-                        <Typography><strong>Category:</strong> {race.kind || 'Unknown'}</Typography>
+                        <Typography><strong>Drivers:</strong> {race.registeredDrivers || race.entry_count || 'Unknown'} / {race.maxDrivers || race.max_starters || 'Unknown'}</Typography>
+                        <Typography><strong>Category:</strong> {race.category || 'Unknown'}</Typography>
                         <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                            Series ID: {race.series_id || race.seriesId} | Season ID: {race.season_id || race.seasonId}
                         </Typography>
                     </CardContent>
                 </Card>
