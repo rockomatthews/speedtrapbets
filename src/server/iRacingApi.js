@@ -14,21 +14,11 @@ class IracingApi {
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
         this.authTokenRefreshInterval = 45 * 60 * 1000;
 
-        this.encodePassword = this.encodePassword.bind(this);
-        this.getData = this.getData.bind(this);
-        this.searchDrivers = this.searchDrivers.bind(this);
-        this.getOfficialRaces = this.getOfficialRaces.bind(this);
-        this.getRaceState = this.getRaceState.bind(this);
-        this.getKindFromCategory = this.getKindFromCategory.bind(this);
-        this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
-        this.paginateRaces = this.paginateRaces.bind(this);
-        this.getCarClasses = this.getCarClasses.bind(this);
-        this.getSeriesDetails = this.getSeriesDetails.bind(this);
-        this.getSeasonDetails = this.getSeasonDetails.bind(this);
-        this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
-        this.refreshAuthToken = this.refreshAuthToken.bind(this);
+        // Arrow functions automatically bind `this`
+        this.startAuthTokenRefresh();
     }
 
+    // Arrow functions automatically bind `this` from the surrounding context
     login = async (username, password) => {
         try {
             console.log(`Attempting to log in user: ${username}`);
@@ -240,6 +230,7 @@ class IracingApi {
         }
     }
 
+    // Method to fetch detailed season data based on seriesId and seasonId
     getSeasonDetails = async (seriesId, seasonId) => {
         console.log(`Fetching season details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
         const seasonData = await this.getData('series/seasons', { series_id: seriesId });
@@ -261,6 +252,7 @@ class IracingApi {
         return seasonDetails;
     }
 
+    // Method to determine the race kind/category based on categoryId
     getKindFromCategory = (categoryId) => {
         const categoryMap = {
             1: 'oval',
@@ -272,6 +264,7 @@ class IracingApi {
         return categoryMap[categoryId] || 'unknown';
     }
 
+    // Method to map license level to a class
     mapLicenseLevelToClass = (licenseGroup) => {
         const licenseMap = {
             5: 'R',   // Rookie
@@ -283,6 +276,7 @@ class IracingApi {
         return licenseGroup !== undefined ? (licenseMap[licenseGroup] || 'Unknown') : 'Unknown';
     }
 
+    // Method to fetch car classes
     getCarClasses = async () => {
         const cacheKey = 'car-classes';
         const cachedData = this.cache.get(cacheKey);
@@ -300,6 +294,7 @@ class IracingApi {
         return carClassData;
     }
 
+    // Method to paginate races
     paginateRaces = (races, page, pageSize) => {
         const startIndex = (page - 1) * pageSize;
         const paginatedRaces = races.slice(startIndex, startIndex + pageSize);
@@ -312,6 +307,7 @@ class IracingApi {
         };
     }
 
+    // Method to determine the current race state (e.g., practice, qualifying, in_progress)
     getRaceState = (race) => {
         const currentTime = new Date();
         const startTime = new Date(race.start_time);
@@ -329,6 +325,7 @@ class IracingApi {
         }
     }
 
+    // Method to handle retrying API calls with exponential backoff
     retryApiCall = async (apiCall, retries = 3, initialDelay = 1000) => {
         let delay = initialDelay;
         for (let i = 0; i < retries; i++) {
@@ -343,9 +340,28 @@ class IracingApi {
         }
     }
 
+    // Method to introduce delay
     delay = (ms) => {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+
+    // Start the automatic token refresh process
+    startAuthTokenRefresh = () => {
+        console.log('Starting auth token refresh cycle...');
+        this.refreshAuthToken();
+        setInterval(this.refreshAuthToken, this.authTokenRefreshInterval);
+    };
+
+    // Method to refresh the authentication token
+    refreshAuthToken = async () => {
+        console.log('Refreshing auth token...');
+        try {
+            await this.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
+            console.log('Auth token refreshed successfully.');
+        } catch (error) {
+            console.error('Error refreshing auth token:', error);
+        }
+    };
 }
 
 module.exports = IracingApi;
