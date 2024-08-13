@@ -125,7 +125,7 @@ const RankRaces = () => {
     // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
         const filtered = races.filter(race => 
-            (categoryFilter === 'all' || race.category === categoryFilter) &&
+            (categoryFilter === 'all' || race.kind === categoryFilter) &&
             (licenseLevelFilter === 'all' || race.licenseLevel === licenseLevelFilter) &&
             (stateFilter === 'all' || race.state === stateFilter)
         );
@@ -158,7 +158,7 @@ const RankRaces = () => {
     const renderRace = (race, index) => {
         console.log(`Rendering race at index ${index}:`, race);
 
-        // Extract data from the race object
+        // Extract data from the race object using the correct prefixes
         const seriesName = race.name || 'Unknown Series';
         const carNames = race.carNames || 'Unknown Car';
         const trackName = race.trackName || 'Unknown Track';
@@ -306,7 +306,7 @@ const RankRaces = () => {
             )}
 
             {lastUpdated && (
-                <Typography variant="caption" sx={{ mt: 2, display: "block" }}>
+                <Typography variant="caption" sx={{ mt: 2, display:"block" }}>
                     Last updated: {lastUpdated.toLocaleString()}
                 </Typography>
             )}
