@@ -155,7 +155,7 @@ const RankRaces = () => {
     }, [fetchRaces]);
 
     // Handle race data rendering with correct fields
-    const renderRace = (race, index) => {
+    const renderRace = (race, series, carclass, index) => {
         console.log(`Rendering race at index ${index}:`, race);
         return (
             <Grid item xs={12} key={index}>
@@ -165,12 +165,12 @@ const RankRaces = () => {
                         <Divider sx={{ my: 1 }} />
                         <Typography><strong>License Level:</strong> {race.licenseLevel || 'Unknown'}</Typography>
                         <Typography><strong>Track:</strong> {race.track_name || 'Unknown'} {race.trackConfig && `(${race.trackConfig})`}</Typography>
-                        <Typography><strong>Cars:</strong> {race.name || 'Unknown'}</Typography>
+                        <Typography><strong>Cars:</strong> {carclass.name || 'Unknown'}</Typography>
                         <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
                         <Typography><strong>Duration:</strong> {race.race_time_limit || 'Unknown'} minutes</Typography>
                         <Typography><strong>State:</strong> {race.state || 'Unknown'}</Typography>
                         <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
-                        <Typography><strong>Category:</strong> {race.category || 'Unknown'}</Typography>
+                        <Typography><strong>Category:</strong> {series.category || 'Unknown'}</Typography>
                         <Typography variant="caption" display="block" sx={{ mt: 1 }}>
                             Series ID: {race.seriesId} | Season ID: {race.seasonId}
                         </Typography>

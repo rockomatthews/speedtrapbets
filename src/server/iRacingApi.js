@@ -1,400 +1,292 @@
-const axios = require('axios');
-const crypto = require('crypto');
-const NodeCache = require('node-cache');
-const { RateLimiter } = require('limiter');
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import _ from 'lodash';
+import { 
+    Typography, 
+    Box, 
+    FormControl, 
+    InputLabel, 
+    Select, 
+    MenuItem, 
+    CircularProgress, 
+    Card, 
+    CardContent, 
+    Grid, 
+    Button,
+    Divider,
+    Alert,
+    Snackbar
+} from '@mui/material';
 
-class IracingApi {
-    constructor() {
-        this.baseUrl = 'https://members-ng.iracing.com/';
-        this.session = axios.create({
-            baseURL: this.baseUrl,
-            withCredentials: true,
-        });
-        this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
-        this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
-        this.authTokenRefreshInterval = 45 * 60 * 1000; // 45 minutes
-        this.authCookie = null; // Store the authentication cookie here
+const RankRaces = () => {
+    const [races, setRaces] = useState([]);
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [licenseLevelFilter, setLicenseLevelFilter] = useState('all');
+    const [stateFilter, setStateFilter] = useState('all');
+    const [isLoadingRaces, setIsLoadingRaces] = useState(false);
+    const [error, setError] = useState('');
+    const [lastUpdated, setLastUpdated] = useState(null);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [totalCount, setTotalCount] = useState(0);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
 
-        // Start the automatic token refresh process
-        this.startAuthTokenRefresh();
-    }
-
-    // Method to log in to iRacing API
-    login = async (username, password) => {
+    // Fetch races from the API
+    const fetchRaces = useCallback(async (pageNum, refresh = false) => {
+        setIsLoadingRaces(true);
+        setError('');
         try {
-            console.log(`Attempting to log in user: ${username}`);
-            const encodedPassword = this.encodePassword(username, password);
-            const response = await this.session.post('auth', {
-                email: username,
-                password: encodedPassword,
-            });
-            console.log('Login response data:', response.data); // Log the response data for debugging purposes
+            const url = refresh 
+                ? `https://speedtrapbets.onrender.com/api/refresh-races`
+                : `https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`;
 
-            const cookies = response.headers['set-cookie'];
-            if (cookies) {
-                this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
-                if (!this.authCookie) {
-                    throw new Error('Authentication cookie not found in response');
-                }
-                this.session.defaults.headers.Cookie = this.authCookie;
-                console.log('Authentication cookie set successfully:', this.authCookie); // Log the authentication cookie for confirmation
-            } else {
-                throw new Error('No cookies received in authentication response');
-            }
-            console.log('Login successful');
-            return response.data; // Return the response data for potential further use
-        } catch (error) {
-            console.error('Login failed:', error.response ? error.response.data : error.message);
-            throw error;
-        }
-    }
+            console.log(`Fetching races from URL: ${url}`);
 
-    // Method to encode password using SHA-256 hashing
-    encodePassword = (username, password) => {
-        const lowerEmail = username.toLowerCase();
-        const hash = crypto.createHash('sha256').update(password + lowerEmail).digest();
-        return hash.toString('base64');
-    }
-
-    // Method to verify if the current session is still authenticated
-    verifyAuth = async () => {
-        try {
-            console.log('Verifying current session authentication...');
-            const response = await this.session.get('membersite/member/get', {
+            const response = await fetch(url, {
+                credentials: 'include',
                 headers: {
-                    Cookie: this.authCookie
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 }
             });
-            console.log('Session verification response data:', response.data); // Log the response data to verify the session
-            console.log('Session is still valid');
-            return true;
-        } catch (error) {
-            console.error('Session verification failed:', error.response ? error.response.data : error.message);
-            return false;
-        }
-    }
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
+            }
+            
+            const data = await response.json();
+            console.log('Fetched race data:', data);
 
-    // Method to fetch data from the API with retry logic and caching
-    getData = async (endpoint, params = {}, retries = 3) => {
-        const cacheKey = `${endpoint}-${JSON.stringify(params)}`;
-        const cachedData = this.cache.get(cacheKey);
-        if (cachedData) {
-            console.log(`Returning cached data for ${endpoint}`);
-            return cachedData;
-        }
-        for (let i = 0; i < retries; i++) {
-            try {
-                await this.rateLimiter.removeTokens(1);
-                if (!this.authCookie) {
-                    throw new Error('Not authenticated. Please login first.');
-                }
-                console.log(`Sending request to ${endpoint} with auth cookie:`, this.authCookie);
-                const response = await this.session.get(`data/${endpoint}`, {
-                    params,
-                    headers: {
-                        Cookie: this.authCookie
-                    }
-                });
-                console.log(`API Response from ${endpoint}:`, response.data); // Log the response data for the requested endpoint
-                if (response.data && response.data.link) {
-                    console.log(`Following link for ${endpoint}:`, response.data.link);
-                    try {
-                        const linkResponse = await axios.get(response.data.link);
-                        console.log(`Data fetched from link for ${endpoint}:`, linkResponse.data); // Log the data fetched from the link
-                        this.cache.set(cacheKey, linkResponse.data);
-                        return linkResponse.data;
-                    } catch (linkError) {
-                        console.error(`Error fetching data from link for ${endpoint}:`, linkError.message);
-                        throw linkError;
-                    }
-                }
-                this.cache.set(cacheKey, response.data);
-                return response.data;
-            } catch (error) {
-                if (error.response && error.response.status === 401) {
-                    console.error('Unauthorized error, attempting to re-authenticate...');
-                    await this.refreshAuthToken();
-                    if (i === retries - 1) {
-                        console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
-                        throw error;
-                    }
-                } else if (error.response && error.response.status === 429) {
-                    const delay = Math.pow(2, i) * 1000;
-                    console.log(`Rate limited. Waiting for ${delay}ms before retry ${i + 1}`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                } else if (i === retries - 1) {
-                    console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
-                    throw error;
+            if (data.races && Array.isArray(data.races)) {
+                console.log('Fetched races array:', data.races);
+                if (pageNum === 1 || refresh) {
+                    setRaces(data.races);
                 } else {
-                    console.log(`Error occurred while fetching ${endpoint}. Retrying... (Attempt ${i + 1}/${retries})`);
+                    setRaces(prevRaces => [...prevRaces, ...data.races]);
                 }
+                setTotalCount(data.totalCount);
+                setHasMore(data.races.length === 10 && races.length + data.races.length < data.totalCount);
+                setLastUpdated(new Date());
+                setError('');
+                setSnackbarMessage('Races updated successfully');
+                setSnackbarOpen(true);
+            } else {
+                console.error('Received unexpected data structure from the server:', data);
+                throw new Error('Received unexpected data structure from the server');
             }
+        } catch (error) {
+            setError(`Failed to fetch races: ${error.message}`);
+            setSnackbarMessage(`Error: ${error.message}`);
+            setSnackbarOpen(true);
+            console.error('Error fetching races:', error);
+        } finally {
+            setIsLoadingRaces(false);
         }
-        throw new Error(`Failed to fetch data from ${endpoint} after ${retries} retries`);
-    }
+    }, [races.length]);
 
-    // Method to search for drivers
-    searchDrivers = async (searchTerm) => {
-        console.log(`Searching for driver with term: ${searchTerm}`);
-        const params = { search_term: searchTerm };
-        const data = await this.getData('lookup/drivers', params);
-        if (data && data.link) {
-            console.log('Fetching driver data from provided link');
-            const response = await axios.get(data.link);
-            console.log('Driver search results:', response.data); // Log the driver search results
-            return response.data;
+    // Initial fetch of race data
+    useEffect(() => {
+        fetchRaces(1);
+    }, [fetchRaces]);
+
+    // Throttled function to load more races when the user scrolls or interacts
+    const loadMore = useCallback(() => {
+        if (!isLoadingRaces && hasMore) {
+            setPage(prevPage => prevPage + 1);
+            fetchRaces(page + 1);
         }
-        return data;
-    }
+    }, [isLoadingRaces, hasMore, page, fetchRaces]);
 
-    // Method to fetch official races and their details
-    getOfficialRaces = async (page = 1, pageSize = 10) => {
-        try {
-            console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
-            
-            const currentTime = new Date().toISOString();
-            const cacheKey = `official-races-${currentTime.slice(0, 16)}`;
-            const cachedData = this.cache.get(cacheKey);
-            
-            if (cachedData) {
-                console.log('Returning cached official races data');
-                return this.paginateRaces(cachedData, page, pageSize);
-            }
-    
-            console.log('Fetching race guide data...');
-            let raceGuideData = await this.retryApiCall(() => this.getData('season/race_guide', {
-                from: currentTime,
-                include_end_after_from: true
-            }));
-    
-            if (raceGuideData.link) {
-                console.log('Fetching detailed race guide data from provided link');
-                raceGuideData = await this.retryApiCall(() => axios.get(raceGuideData.link));
-                raceGuideData = raceGuideData.data;
-            }
-    
-            if (!Array.isArray(raceGuideData.sessions)) {
-                console.error('Invalid race guide data structure:', raceGuideData);
-                throw new Error('Invalid race guide data structure');
-            }
-    
-            console.log(`Total sessions: ${raceGuideData.sessions.length}`);
-    
-            console.log('Fetching series data...');
-            let seriesData = await this.retryApiCall(() => this.getData('series/get'));
-            if (seriesData.link) {
-                console.log('Fetching detailed series data from provided link');
-                seriesData = await this.retryApiCall(() => axios.get(seriesData.link));
-                seriesData = seriesData.data;
-            }
-    
-            console.log('Fetching car class data...');
-            const carClassData = await this.getCarClasses();
-    
-            console.log('Fetching track data...');
-            let trackData = await this.retryApiCall(() => this.getData('track/get'));
-            if (trackData.link) {
-                console.log('Fetching detailed track data from provided link');
-                const trackResponse = await this.retryApiCall(() => axios.get(trackData.link));
-                trackData = trackResponse.data;
-            }
-    
-            if (!Array.isArray(trackData)) {
-                console.error('Invalid track data structure:', trackData);
-                throw new Error('Invalid track data structure');
-            }
-    
-            console.log('Processing race data...');
-            const relevantRaces = await Promise.all(raceGuideData.sessions.map(async (race) => {
-                const state = this.getRaceState(race);
-                if (state !== 'practice' && state !== 'qualifying') {
-                    return null;
-                }
+    // Applying throttle to the loadMore function to avoid excessive calls
+    const throttledLoadMore = useMemo(() => {
+        return _.throttle(loadMore, 1000);
+    }, [loadMore]);
 
-                const series = seriesData.find(s => s.series_id === race.series_id) || {};
-                const season = await this.getSeasonDetails(race.series_id, race.season_id);
+    // Handle changes to category filter
+    const handleCategoryFilterChange = useCallback((event) => {
+        console.log(`Category filter changed to: ${event.target.value}`);
+        setCategoryFilter(event.target.value);
+    }, []);
 
-                const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
-                const carNames = carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car';
+    // Handle changes to license level filter
+    const handleLicenseLevelFilterChange = useCallback((event) => {
+        console.log(`License level filter changed to: ${event.target.value}`);
+        setLicenseLevelFilter(event.target.value);
+    }, []);
 
-                let track = { track_name: 'Unknown Track', config_name: '' };
-                if (season && season.track && season.track.track_id) {
-                    const foundTrack = trackData.find(t => t.track_id === season.track.track_id);
-                    if (foundTrack) {
-                        track = foundTrack;
+    // Handle changes to state filter
+    const handleStateFilterChange = useCallback((event) => {
+        console.log(`State filter changed to: ${event.target.value}`);
+        setStateFilter(event.target.value);
+    }, []);
+
+    // Filter races based on selected filters
+    const filteredRaces = useMemo(() => {
+        const filtered = races.filter(race => 
+            (categoryFilter === 'all' || race.category === categoryFilter) &&
+            (licenseLevelFilter === 'all' || race.licenseLevel === licenseLevelFilter) &&
+            (stateFilter === 'all' || race.state === stateFilter)
+        );
+        console.log('Filtered races:', filtered);
+        return filtered;
+    }, [races, categoryFilter, licenseLevelFilter, stateFilter]);
+
+    // Handle closing of the snackbar
+    const handleSnackbarClose = useCallback((event, reason) => {
+        if (reason === 'clickaway') {
+            return;
+        }
+        setSnackbarOpen(false);
+    }, []);
+
+    // Handle retrying the fetch in case of error
+    const handleRetry = useCallback(() => {
+        console.log('Retrying fetch races...');
+        fetchRaces(1);
+    }, [fetchRaces]);
+
+    // Handle manual refresh of races
+    const handleRefresh = useCallback(() => {
+        console.log('Manually refreshing races...');
+        setPage(1);  // Reset the page to 1 when refreshing
+        fetchRaces(1, true);
+    }, [fetchRaces]);
+
+    // Handle race data rendering with correct fields
+    const renderRace = (race, index) => {
+        console.log(`Rendering race at index ${index}:`, race);
+        return (
+            <Grid item xs={12} key={index}>
+                <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom>{race.name}</Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography><strong>License Level:</strong> {race.licenseLevel || 'Unknown'}</Typography>
+                        <Typography><strong>Track:</strong> {race.trackName || 'Unknown'} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                        <Typography><strong>Cars:</strong> {race.name || 'Unknown'}</Typography>
+                        <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
+                        <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
+                        <Typography><strong>State:</strong> {race.state || 'Unknown'}</Typography>
+                        <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
+                        <Typography><strong>Category:</strong> {race.category || 'Unknown'}</Typography>
+                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                        </Typography>
+                    </CardContent>
+                </Card>
+            </Grid>
+        );
+    };
+
+    return (
+        <Box>
+            <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
+
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <FormControl sx={{ minWidth: 120 }}>
+                    <InputLabel>Category</InputLabel>
+                    <Select value={categoryFilter} onChange={handleCategoryFilterChange}>
+                        <MenuItem value="all">All</MenuItem>
+                        <MenuItem value="oval">Oval</MenuItem>
+                        <MenuItem value="road">Road</MenuItem>
+                        <MenuItem value="dirt_oval">Dirt Oval</MenuItem>
+                        <MenuItem value="dirt_road">Dirt Road</MenuItem>
+                        <MenuItem value="sports_car">Sports Car</MenuItem>
+                    </Select>
+                </FormControl>
+
+                <FormControl sx={{ minWidth: 120 }}>
+                    <InputLabel>License Level</InputLabel>
+                    <Select value={licenseLevelFilter} onChange={handleLicenseLevelFilterChange}>
+                        <MenuItem value="all">All</MenuItem>
+                        <MenuItem value="Rookie">Rookie</MenuItem>
+                        <MenuItem value="D">D</MenuItem>
+                        <MenuItem value="C">C</MenuItem>
+                        <MenuItem value="B">B</MenuItem>
+                        <MenuItem value="A">A</MenuItem>
+                    </Select>
+                </FormControl>
+
+                <FormControl sx={{ minWidth: 120 }}>
+                    <InputLabel>State</InputLabel>
+                    <Select value={stateFilter} onChange={handleStateFilterChange}>
+                        <MenuItem value="all">All</MenuItem>
+                        <MenuItem value="practice">Practice</MenuItem>
+                        <MenuItem value="qualifying">Qualifying</MenuItem>
+                    </Select>
+                </FormControl>
+            </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                <Button
+                    onClick={handleRefresh}
+                    variant="contained"
+                    color="primary"
+                    disabled={isLoadingRaces}
+                >
+                    {isLoadingRaces ? 'Refreshing...' : 'Refresh Races'}
+                </Button>
+            </Box>
+
+            {error && (
+                <Alert 
+                    severity="error" 
+                    sx={{ mb: 2 }}
+                    action={
+                        <Button color="inherit" size="small" onClick={handleRetry}>
+                            Retry
+                        </Button>
                     }
-                }
+                >
+                    {error}
+                </Alert>
+            )}
 
-                console.log(`Processed race: ${series.series_name || race.series_name || 'Unknown Series'}`);
-                return {
-                    name: series.series_name || race.series_name || 'Unknown Series',
-                    description: series.series_short_name || 'Unknown',
-                    licenseLevel: this.mapLicenseLevelToClass(season ? season.license_group : undefined),
-                    startTime: race.start_time,
-                    state: state,
-                    sessionMinutes: race.duration,
-                    registeredDrivers: race.entry_count,
-                    maxDrivers: race.max_entry_count || 0,
-                    seriesId: race.series_id,
-                    seasonId: race.season_id,
-                    categoryId: race.category_id,
-                    kind: this.getKindFromCategory(race.category_id),
-                    trackName: track.track_name,
-                    trackConfig: track.config_name,
-                    carNames: carNames
-                };
-            }));
-    
-            const filteredRaces = relevantRaces.filter(race => race !== null);
-            console.log(`Relevant races: ${filteredRaces.length}`);
-    
-            filteredRaces.sort((a, b) => {
-                if (a.state === 'qualifying' && b.state !== 'qualifying') return -1;
-                if (a.state !== 'qualifying' && b.state === 'qualifying') return 1;
-                return new Date(a.startTime) - new Date(b.startTime);
-            });
-    
-            this.cache.set(cacheKey, filteredRaces);
-    
-            return this.paginateRaces(filteredRaces, page, pageSize);
-        } catch (error) {
-            console.error('Error fetching official races:', error);
-            throw error;
-        }
-    }
+            {isLoadingRaces && page === 1 ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                    <CircularProgress />
+                </Box>
+            ) : filteredRaces.length > 0 ? (
+                <>
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                        Showing {filteredRaces.length} of {totalCount} total races
+                    </Typography>
+                    <Grid container spacing={2}>
+                        {filteredRaces.map(renderRace)}
+                    </Grid>
+                    {hasMore && (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                            <Button 
+                                onClick={throttledLoadMore} 
+                                disabled={isLoadingRaces}
+                                variant="contained"
+                                color="primary"
+                            >
+                                {isLoadingRaces ? 'Loading...' : 'Load More'}
+                            </Button>
+                        </Box>
+                    )}
+                </>
+            ) : (
+                <Typography>No races found matching the current filters.</Typography>
+            )}
 
-    // Method to fetch detailed season data based on seriesId and seasonId
-    getSeasonDetails = async (seriesId, seasonId) => {
-        console.log(`Fetching season details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
-        const seasonData = await this.getData('series/seasons', { series_id: seriesId });
-        
-        let seasonDetails;
-        if (seasonData.link) {
-            const seasonResponse = await this.retryApiCall(() => axios.get(seasonData.link));
-            seasonDetails = seasonResponse.data.find(s => s.season_id === seasonId);
-        } else {
-            seasonDetails = seasonData.find(s => s.season_id === seasonId);
-        }
+            {lastUpdated && (
+                <Typography variant="caption" sx={{ mt: 2, display: "block" }}>
+                    Last updated: {lastUpdated.toLocaleString()}
+                </Typography>
+            )}
 
-        if (!seasonDetails) {
-            console.error('Season details not found:', seasonId);
-            throw new Error(`Season details not found for seasonId: ${seasonId}`);
-        }
+            <Snackbar
+                open={snackbarOpen}
+                autoHideDuration={6000}
+                onClose={handleSnackbarClose}
+                message={snackbarMessage}
+            />
+        </Box>
+    );
+};
 
-        console.log('Season details fetched:', seasonDetails);
-        return seasonDetails;
-    }
-
-    // Method to determine the race kind/category based on categoryId
-    getKindFromCategory = (categoryId) => {
-        const categoryMap = {
-            1: 'oval',
-            2: 'road',
-            3: 'dirt_oval',
-            4: 'dirt_road',
-            5: 'sports_car'
-        };
-        return categoryMap[categoryId] || 'unknown';
-    }
-
-    // Method to map license level to a class
-    mapLicenseLevelToClass = (licenseGroup) => {
-        const licenseMap = {
-            5: 'R',   // Rookie
-            4: 'D',
-            3: 'C',
-            2: 'B',
-            1: 'A'
-        };
-        return licenseGroup !== undefined ? (licenseMap[licenseGroup] || 'Unknown') : 'Unknown';
-    }
-
-    // Method to fetch car classes
-    getCarClasses = async () => {
-        const cacheKey = 'car-classes';
-        const cachedData = this.cache.get(cacheKey);
-        if (cachedData) {
-            return cachedData;
-        }
-
-        let carClassData = await this.getData('carclass/get');
-        if (carClassData.link) {
-            console.log('Fetching detailed car class data from provided link');
-            const response = await axios.get(carClassData.link);
-            carClassData = response.data;
-        }
-        this.cache.set(cacheKey, carClassData);
-        return carClassData;
-    }
-
-    // Method to paginate races
-    paginateRaces = (races, page, pageSize) => {
-        const startIndex = (page - 1) * pageSize;
-        const paginatedRaces = races.slice(startIndex, startIndex + pageSize);
-        console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
-        return {
-            races: paginatedRaces,
-            totalCount: races.length,
-            page: page,
-            pageSize: pageSize
-        };
-    }
-
-    // Method to determine the current race state (e.g., practice, qualifying, in_progress)
-    getRaceState = (race) => {
-        const currentTime = new Date();
-        const startTime = new Date(race.start_time);
-        const practiceEndTime = new Date(startTime.getTime() + 30 * 60000); // 30 minutes after start
-        const qualifyingEndTime = new Date(practiceEndTime.getTime() + 10 * 60000); // 10 minutes qualifying
-        
-        if (currentTime < startTime) {
-            return 'upcoming';
-        } else if (currentTime >= startTime && currentTime < practiceEndTime) {
-            return 'practice';
-        } else if (currentTime >= practiceEndTime && currentTime < qualifyingEndTime) {
-            return 'qualifying';
-        } else {
-            return 'in_progress';
-        }
-    }
-
-    // Method to handle retrying API calls with exponential backoff
-    retryApiCall = async (apiCall, retries = 3, initialDelay = 1000) => {
-        let delay = initialDelay;
-        for (let i = 0; i < retries; i++) {
-            try {
-                return await apiCall();
-            } catch (error) {
-                if (i === retries - 1) throw error;
-                console.log(`API call failed, retrying in ${delay}ms...`);
-                await this.delay(delay);
-                delay *= 2; // Exponential backoff
-            }
-        }
-    }
-
-    // Method to introduce delay
-    delay = (ms) => {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // Start the automatic token refresh process
-    startAuthTokenRefresh = () => {
-        console.log('Starting auth token refresh cycle...');
-        this.refreshAuthToken();
-        setInterval(this.refreshAuthToken, this.authTokenRefreshInterval);
-    };
-
-    // Method to refresh the authentication token
-    refreshAuthToken = async () => {
-        console.log('Refreshing auth token...');
-        try {
-            await this.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
-            console.log('Auth token refreshed successfully.');
-        } catch (error) {
-            console.error('Error refreshing auth token:', error);
-        }
-    };
-}
-
-module.exports = IracingApi;
+export default React.memo(RankRaces);
