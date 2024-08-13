@@ -12,7 +12,8 @@ class IracingApi {
         });
         this.cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
-        this.authTokenRefreshInterval = 45 * 60 * 1000;
+        this.authTokenRefreshInterval = 45 * 60 * 1000; // 45 minutes
+        this.authCookie = null; // Store the authentication cookie here
 
         // Start the automatic token refresh process
         this.startAuthTokenRefresh();
@@ -27,6 +28,8 @@ class IracingApi {
                 email: username,
                 password: encodedPassword,
             });
+            console.log('Login response data:', response.data); // Log the response data for debugging purposes
+
             const cookies = response.headers['set-cookie'];
             if (cookies) {
                 this.authCookie = cookies.find(cookie => cookie.startsWith('authtoken_members'));
@@ -34,12 +37,12 @@ class IracingApi {
                     throw new Error('Authentication cookie not found in response');
                 }
                 this.session.defaults.headers.Cookie = this.authCookie;
-                console.log('Authentication cookie set successfully');
+                console.log('Authentication cookie set successfully:', this.authCookie); // Log the authentication cookie for confirmation
             } else {
                 throw new Error('No cookies received in authentication response');
             }
             console.log('Login successful');
-            return response.data;
+            return response.data; // Return the response data for potential further use
         } catch (error) {
             console.error('Login failed:', error.response ? error.response.data : error.message);
             throw error;
@@ -51,6 +54,24 @@ class IracingApi {
         const lowerEmail = username.toLowerCase();
         const hash = crypto.createHash('sha256').update(password + lowerEmail).digest();
         return hash.toString('base64');
+    }
+
+    // Method to verify if the current session is still authenticated
+    verifyAuth = async () => {
+        try {
+            console.log('Verifying current session authentication...');
+            const response = await this.session.get('membersite/member/get', {
+                headers: {
+                    Cookie: this.authCookie
+                }
+            });
+            console.log('Session verification response data:', response.data); // Log the response data to verify the session
+            console.log('Session is still valid');
+            return true;
+        } catch (error) {
+            console.error('Session verification failed:', error.response ? error.response.data : error.message);
+            return false;
+        }
     }
 
     // Method to fetch data from the API with retry logic and caching
@@ -74,12 +95,12 @@ class IracingApi {
                         Cookie: this.authCookie
                     }
                 });
-                console.log(`API Response from ${endpoint}:`, response.data);
+                console.log(`API Response from ${endpoint}:`, response.data); // Log the response data for the requested endpoint
                 if (response.data && response.data.link) {
                     console.log(`Following link for ${endpoint}:`, response.data.link);
                     try {
                         const linkResponse = await axios.get(response.data.link);
-                        console.log(`Data fetched from link for ${endpoint}`);
+                        console.log(`Data fetched from link for ${endpoint}:`, linkResponse.data); // Log the data fetched from the link
                         this.cache.set(cacheKey, linkResponse.data);
                         return linkResponse.data;
                     } catch (linkError) {
@@ -90,7 +111,14 @@ class IracingApi {
                 this.cache.set(cacheKey, response.data);
                 return response.data;
             } catch (error) {
-                if (error.response && error.response.status === 429) {
+                if (error.response && error.response.status === 401) {
+                    console.error('Unauthorized error, attempting to re-authenticate...');
+                    await this.refreshAuthToken();
+                    if (i === retries - 1) {
+                        console.error(`Error fetching ${endpoint}:`, error.response ? error.response.data : error.message);
+                        throw error;
+                    }
+                } else if (error.response && error.response.status === 429) {
                     const delay = Math.pow(2, i) * 1000;
                     console.log(`Rate limited. Waiting for ${delay}ms before retry ${i + 1}`);
                     await new Promise(resolve => setTimeout(resolve, delay));
@@ -113,7 +141,7 @@ class IracingApi {
         if (data && data.link) {
             console.log('Fetching driver data from provided link');
             const response = await axios.get(data.link);
-            console.log('Driver search results:', response.data);
+            console.log('Driver search results:', response.data); // Log the driver search results
             return response.data;
         }
         return data;

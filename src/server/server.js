@@ -64,11 +64,27 @@ function logError(error, req = null) {
     }
 })();
 
-const checkAuth = (req, res, next) => {
+const checkAuth = async (req, res, next) => {
     if (!isAuthenticated) {
         console.log('Authentication check failed. API is not authenticated.');
         return res.status(503).json({ error: 'iRacing API is not authenticated. Please try again later.' });
     }
+
+    // Re-authenticate if the token is invalid or expired
+    try {
+        const validSession = await iracingApi.verifyAuth(); // Implement verifyAuth() in IracingApi to check session validity
+        if (!validSession) {
+            console.log('Session expired, re-authenticating...');
+            await iracingApi.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
+            console.log('Re-authentication successful.');
+        }
+    } catch (error) {
+        console.error('Re-authentication failed:', error);
+        logError(error);
+        isAuthenticated = false;
+        return res.status(503).json({ error: 'Re-authentication failed. Please try again later.' });
+    }
+
     console.log('Authentication check passed. Proceeding with the request.');
     next();
 };
