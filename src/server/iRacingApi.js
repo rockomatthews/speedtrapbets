@@ -215,6 +215,7 @@ class IracingApi {
                 const season = await this.getSeasonDetails(race.series_id, race.season_id);
 
                 const carClass = carClassData.find(cc => cc.car_class_id === race.car_class_id) || {};
+                const carNames = carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car';
 
                 let track = { track_name: 'Unknown Track', config_name: '' };
                 if (season && season.track && season.track.track_id) {
@@ -240,7 +241,7 @@ class IracingApi {
                     kind: this.getKindFromCategory(race.category_id),
                     trackName: track.track_name,
                     trackConfig: track.config_name,
-                    carNames: carClass.cars ? carClass.cars.map(car => car.car_name).join(', ') : 'Unknown Car'
+                    carNames: carNames
                 };
             }));
     

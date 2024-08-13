@@ -31,7 +31,7 @@ const RankRaces = () => {
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
 
-    // Function to fetch races from the API, with error handling and state management
+    // Fetch races from the API
     const fetchRaces = useCallback(async (pageNum, refresh = false) => {
         setIsLoadingRaces(true);
         setError('');
@@ -95,7 +95,7 @@ const RankRaces = () => {
 
     // Applying throttle to the loadMore function to avoid excessive calls
     const throttledLoadMore = useMemo(() => {
-        return _.throttle(loadMore, 1000); // Throttle calls to once per second
+        return _.throttle(loadMore, 1000);
     }, [loadMore]);
 
     // Handle changes to race kind filter (renamed to "Category")
