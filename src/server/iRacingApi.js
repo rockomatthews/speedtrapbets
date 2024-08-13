@@ -14,8 +14,6 @@ class IracingApi {
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
         this.authTokenRefreshInterval = 45 * 60 * 1000;
 
-        // No need to bind these functions anymore, arrow functions take care of this
-        // this.login = this.login.bind(this);
         this.encodePassword = this.encodePassword.bind(this);
         this.getData = this.getData.bind(this);
         this.searchDrivers = this.searchDrivers.bind(this);
@@ -25,35 +23,12 @@ class IracingApi {
         this.mapLicenseLevelToClass = this.mapLicenseLevelToClass.bind(this);
         this.paginateRaces = this.paginateRaces.bind(this);
         this.getCarClasses = this.getCarClasses.bind(this);
-        this.getSeriesDetails = async (seriesId) => {
-            console.log(`Fetching series details for seriesId: ${seriesId}`);
-            try {
-                const seriesData = await this.getData('series/get', { series_id: seriesId });
-                console.log('Series details fetched:', seriesData);
-                return seriesData;
-            } catch (error) {
-                console.error('Error fetching series details:', error);
-                throw error;
-            }
-        };
+        this.getSeriesDetails = this.getSeriesDetails.bind(this);
         this.getSeasonDetails = this.getSeasonDetails.bind(this);
-        this.startAuthTokenRefresh = () => {
-            console.log('Starting auth token refresh cycle...');
-            this.refreshAuthToken();
-            setInterval(this.refreshAuthToken, this.authTokenRefreshInterval);
-        };
-        this.refreshAuthToken = async () => {
-            console.log('Refreshing auth token...');
-            try {
-                await this.login(process.env.IRACING_USERNAME, process.env.IRACING_PASSWORD);
-                console.log('Auth token refreshed successfully.');
-            } catch (error) {
-                console.error('Error refreshing auth token:', error);
-            }
-        };
+        this.startAuthTokenRefresh = this.startAuthTokenRefresh.bind(this);
+        this.refreshAuthToken = this.refreshAuthToken.bind(this);
     }
 
-    // Arrow functions automatically bind `this` from the surrounding context
     login = async (username, password) => {
         try {
             console.log(`Attempting to log in user: ${username}`);
@@ -265,8 +240,7 @@ class IracingApi {
         }
     }
 
-    // Method to fetch detailed season data based on seriesId and seasonId
-    async getSeasonDetails(seriesId, seasonId) {
+    getSeasonDetails = async (seriesId, seasonId) => {
         console.log(`Fetching season details for seriesId: ${seriesId}, seasonId: ${seasonId}`);
         const seasonData = await this.getData('series/seasons', { series_id: seriesId });
         
@@ -287,8 +261,7 @@ class IracingApi {
         return seasonDetails;
     }
 
-    // Method to determine the race kind/category based on categoryId
-    getKindFromCategory(categoryId) {
+    getKindFromCategory = (categoryId) => {
         const categoryMap = {
             1: 'oval',
             2: 'road',
@@ -299,8 +272,7 @@ class IracingApi {
         return categoryMap[categoryId] || 'unknown';
     }
 
-    // Method to map license level to a class
-    mapLicenseLevelToClass(licenseGroup) {
+    mapLicenseLevelToClass = (licenseGroup) => {
         const licenseMap = {
             5: 'R',   // Rookie
             4: 'D',
@@ -311,8 +283,7 @@ class IracingApi {
         return licenseGroup !== undefined ? (licenseMap[licenseGroup] || 'Unknown') : 'Unknown';
     }
 
-    // Method to fetch car classes
-    async getCarClasses() {
+    getCarClasses = async () => {
         const cacheKey = 'car-classes';
         const cachedData = this.cache.get(cacheKey);
         if (cachedData) {
@@ -329,8 +300,7 @@ class IracingApi {
         return carClassData;
     }
 
-    // Method to paginate races
-    paginateRaces(races, page, pageSize) {
+    paginateRaces = (races, page, pageSize) => {
         const startIndex = (page - 1) * pageSize;
         const paginatedRaces = races.slice(startIndex, startIndex + pageSize);
         console.log(`Returning ${paginatedRaces.length} races for page ${page}`);
@@ -342,8 +312,7 @@ class IracingApi {
         };
     }
 
-    // Method to determine the current race state (e.g., practice, qualifying, in_progress)
-    getRaceState(race) {
+    getRaceState = (race) => {
         const currentTime = new Date();
         const startTime = new Date(race.start_time);
         const practiceEndTime = new Date(startTime.getTime() + 30 * 60000); // 30 minutes after start
@@ -360,8 +329,7 @@ class IracingApi {
         }
     }
 
-    // Method to handle retrying API calls with exponential backoff
-    async retryApiCall(apiCall, retries = 3, initialDelay = 1000) {
+    retryApiCall = async (apiCall, retries = 3, initialDelay = 1000) => {
         let delay = initialDelay;
         for (let i = 0; i < retries; i++) {
             try {
@@ -375,8 +343,7 @@ class IracingApi {
         }
     }
 
-    // Method to introduce delay
-    delay(ms) {
+    delay = (ms) => {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 }

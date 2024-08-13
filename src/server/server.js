@@ -64,7 +64,6 @@ function logError(error, req = null) {
     }
 })();
 
-
 const checkAuth = (req, res, next) => {
     if (!isAuthenticated) {
         console.log('Authentication check failed. API is not authenticated.');

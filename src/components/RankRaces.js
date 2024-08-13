@@ -141,6 +141,29 @@ const RankRaces = () => {
         fetchRaces(1, true);
     }, [fetchRaces]);
 
+    // Handle race data rendering with correct fields
+    const renderRace = (race, index) => (
+        <Grid item xs={12} key={index}>
+            <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+                <CardContent>
+                    <Typography variant="h6" gutterBottom>{race.name}</Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography><strong>License Level:</strong> {race.licenseLevel}</Typography>
+                    <Typography><strong>Track:</strong> {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                    <Typography><strong>Cars:</strong> {race.carNames}</Typography>
+                    <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
+                    <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
+                    <Typography><strong>State:</strong> {race.state}</Typography>
+                    <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
+                    <Typography><strong>Race Kind:</strong> {race.kind || 'Unknown'}</Typography>
+                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                        Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                    </Typography>
+                </CardContent>
+            </Card>
+        </Grid>
+    );
+
     return (
         <Box>
             <Typography variant="h5" component="h2" gutterBottom>Official Races</Typography>
@@ -215,27 +238,7 @@ const RankRaces = () => {
                         Showing {filteredRaces.length} of {totalCount} total races
                     </Typography>
                     <Grid container spacing={2}>
-                        {filteredRaces.map((race, index) => (
-                            <Grid item xs={12} key={index}>
-                                <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
-                                    <CardContent>
-                                        <Typography variant="h6" gutterBottom>{race.name}</Typography>
-                                        <Divider sx={{ my: 1 }} />
-                                        <Typography><strong>License Level:</strong> {race.licenseLevel}</Typography>
-                                        <Typography><strong>Track:</strong> {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
-                                        <Typography><strong>Cars:</strong> {race.carNames}</Typography>
-                                        <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
-                                        <Typography><strong>Duration:</strong> {race.sessionMinutes} minutes</Typography>
-                                        <Typography><strong>State:</strong> {race.state}</Typography>
-                                        <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers}</Typography>
-                                        <Typography><strong>Race Kind:</strong> {race.kind}</Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
-                                        </Typography>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        ))}
+                        {filteredRaces.map(renderRace)}
                     </Grid>
                     {hasMore && (
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
