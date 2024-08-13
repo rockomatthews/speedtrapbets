@@ -98,7 +98,7 @@ const RankRaces = () => {
         return _.throttle(loadMore, 1000); // Throttle calls to once per second
     }, [loadMore]);
 
-    // Handle changes to race kind filter
+    // Handle changes to race kind filter (renamed to "Category")
     const handleRaceKindFilterChange = useCallback((event) => {
         setRaceKindFilter(event.target.value);
     }, []);
@@ -155,7 +155,7 @@ const RankRaces = () => {
                     <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
                     <Typography><strong>State:</strong> {race.state}</Typography>
                     <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
-                    <Typography><strong>Race Kind:</strong> {race.kind || 'Unknown'}</Typography>
+                    <Typography><strong>Category:</strong> {race.kind || 'Unknown'}</Typography>
                     <Typography variant="caption" display="block" sx={{ mt: 1 }}>
                         Series ID: {race.seriesId} | Season ID: {race.seasonId}
                     </Typography>
@@ -170,7 +170,7 @@ const RankRaces = () => {
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
-                    <InputLabel>Race Kind</InputLabel>
+                    <InputLabel>Category</InputLabel>
                     <Select value={raceKindFilter} onChange={handleRaceKindFilterChange}>
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="oval">Oval</MenuItem>

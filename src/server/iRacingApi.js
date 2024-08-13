@@ -14,11 +14,11 @@ class IracingApi {
         this.rateLimiter = new RateLimiter({ tokensPerInterval: 5, interval: 'second' });
         this.authTokenRefreshInterval = 45 * 60 * 1000;
 
-        // Arrow functions automatically bind `this`
+        // Start the automatic token refresh process
         this.startAuthTokenRefresh();
     }
 
-    // Arrow functions automatically bind `this` from the surrounding context
+    // Method to log in to iRacing API
     login = async (username, password) => {
         try {
             console.log(`Attempting to log in user: ${username}`);
@@ -46,12 +46,14 @@ class IracingApi {
         }
     }
 
+    // Method to encode password using SHA-256 hashing
     encodePassword = (username, password) => {
         const lowerEmail = username.toLowerCase();
         const hash = crypto.createHash('sha256').update(password + lowerEmail).digest();
         return hash.toString('base64');
     }
 
+    // Method to fetch data from the API with retry logic and caching
     getData = async (endpoint, params = {}, retries = 3) => {
         const cacheKey = `${endpoint}-${JSON.stringify(params)}`;
         const cachedData = this.cache.get(cacheKey);
@@ -103,6 +105,7 @@ class IracingApi {
         throw new Error(`Failed to fetch data from ${endpoint} after ${retries} retries`);
     }
 
+    // Method to search for drivers
     searchDrivers = async (searchTerm) => {
         console.log(`Searching for driver with term: ${searchTerm}`);
         const params = { search_term: searchTerm };
@@ -116,6 +119,7 @@ class IracingApi {
         return data;
     }
 
+    // Method to fetch official races and their details
     getOfficialRaces = async (page = 1, pageSize = 10) => {
         try {
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
