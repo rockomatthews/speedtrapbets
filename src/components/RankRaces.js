@@ -19,8 +19,8 @@ import {
 
 const RankRaces = () => {
     const [races, setRaces] = useState([]);
-    const [raceKindFilter, setRaceKindFilter] = useState('all');
-    const [classFilter, setClassFilter] = useState('all');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [licenseLevelFilter, setLicenseLevelFilter] = useState('all');
     const [stateFilter, setStateFilter] = useState('all');
     const [isLoadingRaces, setIsLoadingRaces] = useState(false);
     const [error, setError] = useState('');
@@ -40,7 +40,7 @@ const RankRaces = () => {
                 ? `https://speedtrapbets.onrender.com/api/refresh-races`
                 : `https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`;
 
-            console.log(`Fetching races from URL: ${url}`); // Log the URL being fetched
+            console.log(`Fetching races from URL: ${url}`);
 
             const response = await fetch(url, {
                 credentials: 'include',
@@ -52,15 +52,15 @@ const RankRaces = () => {
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`); // Log error details
+                console.error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
                 throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
             }
             
             const data = await response.json();
-            console.log('Fetched race data:', data); // Log the fetched data
+            console.log('Fetched race data:', data);
 
             if (data.races && Array.isArray(data.races)) {
-                console.log('Fetched races array:', data.races); // Log the races array
+                console.log('Fetched races array:', data.races);
                 if (pageNum === 1 || refresh) {
                     setRaces(data.races);
                 } else {
@@ -73,14 +73,14 @@ const RankRaces = () => {
                 setSnackbarMessage('Races updated successfully');
                 setSnackbarOpen(true);
             } else {
-                console.error('Received unexpected data structure from the server:', data); // Log unexpected data structure
+                console.error('Received unexpected data structure from the server:', data);
                 throw new Error('Received unexpected data structure from the server');
             }
         } catch (error) {
             setError(`Failed to fetch races: ${error.message}`);
             setSnackbarMessage(`Error: ${error.message}`);
             setSnackbarOpen(true);
-            console.error('Error fetching races:', error); // Log the error
+            console.error('Error fetching races:', error);
         } finally {
             setIsLoadingRaces(false);
         }
@@ -104,34 +104,34 @@ const RankRaces = () => {
         return _.throttle(loadMore, 1000);
     }, [loadMore]);
 
-    // Handle changes to race kind filter (renamed to "Category")
-    const handleRaceKindFilterChange = useCallback((event) => {
-        console.log(`Race kind filter changed to: ${event.target.value}`); // Log the selected race kind filter
-        setRaceKindFilter(event.target.value);
+    // Handle changes to category filter
+    const handleCategoryFilterChange = useCallback((event) => {
+        console.log(`Category filter changed to: ${event.target.value}`);
+        setCategoryFilter(event.target.value);
     }, []);
 
-    // Handle changes to class filter
-    const handleClassFilterChange = useCallback((event) => {
-        console.log(`Class filter changed to: ${event.target.value}`); // Log the selected class filter
-        setClassFilter(event.target.value);
+    // Handle changes to license level filter
+    const handleLicenseLevelFilterChange = useCallback((event) => {
+        console.log(`License level filter changed to: ${event.target.value}`);
+        setLicenseLevelFilter(event.target.value);
     }, []);
 
     // Handle changes to state filter
     const handleStateFilterChange = useCallback((event) => {
-        console.log(`State filter changed to: ${event.target.value}`); // Log the selected state filter
+        console.log(`State filter changed to: ${event.target.value}`);
         setStateFilter(event.target.value);
     }, []);
 
     // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
         const filtered = races.filter(race => 
-            (raceKindFilter === 'all' || race.category === raceKindFilter) &&
-            (classFilter === 'all' || race.licenseLevel === classFilter) &&
+            (categoryFilter === 'all' || race.category === categoryFilter) &&
+            (licenseLevelFilter === 'all' || race.licenseLevel === licenseLevelFilter) &&
             (stateFilter === 'all' || race.state === stateFilter)
         );
-        console.log('Filtered races:', filtered); // Log the filtered races
+        console.log('Filtered races:', filtered);
         return filtered;
-    }, [races, raceKindFilter, classFilter, stateFilter]);
+    }, [races, categoryFilter, licenseLevelFilter, stateFilter]);
 
     // Handle closing of the snackbar
     const handleSnackbarClose = useCallback((event, reason) => {
@@ -143,36 +143,36 @@ const RankRaces = () => {
 
     // Handle retrying the fetch in case of error
     const handleRetry = useCallback(() => {
-        console.log('Retrying fetch races...'); // Log retry attempt
+        console.log('Retrying fetch races...');
         fetchRaces(1);
     }, [fetchRaces]);
 
     // Handle manual refresh of races
     const handleRefresh = useCallback(() => {
-        console.log('Manually refreshing races...'); // Log manual refresh attempt
+        console.log('Manually refreshing races...');
         setPage(1);  // Reset the page to 1 when refreshing
         fetchRaces(1, true);
     }, [fetchRaces]);
 
     // Handle race data rendering with correct fields
     const renderRace = (race, index) => {
-        console.log(`Rendering race at index ${index}:`, race); // Log the race being rendered
+        console.log(`Rendering race at index ${index}:`, race);
         return (
             <Grid item xs={12} key={index}>
                 <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
                     <CardContent>
-                        <Typography variant="h6" gutterBottom>{race.series_name || race.name || 'Unknown Race'}</Typography>
+                        <Typography variant="h6" gutterBottom>{race.name}</Typography>
                         <Divider sx={{ my: 1 }} />
                         <Typography><strong>License Level:</strong> {race.licenseLevel || 'Unknown'}</Typography>
-                        <Typography><strong>Track:</strong> {race.track_name || 'Unknown'} {race.config_name && `(${race.config_name})`}</Typography>
-                        <Typography><strong>Cars:</strong> {race.carNames || 'Unknown'}</Typography>
-                        <Typography><strong>Start Time:</strong> {new Date(race.start_time || race.startTime).toLocaleString()}</Typography>
-                        <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
+                        <Typography><strong>Track:</strong> {race.track_name || 'Unknown'} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                        <Typography><strong>Cars:</strong> {race.name || 'Unknown'}</Typography>
+                        <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
+                        <Typography><strong>Duration:</strong> {race.race_time_limit || 'Unknown'} minutes</Typography>
                         <Typography><strong>State:</strong> {race.state || 'Unknown'}</Typography>
-                        <Typography><strong>Drivers:</strong> {race.registeredDrivers || race.entry_count || 'Unknown'} / {race.maxDrivers || race.max_starters || 'Unknown'}</Typography>
+                        <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
                         <Typography><strong>Category:</strong> {race.category || 'Unknown'}</Typography>
                         <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                            Series ID: {race.series_id || race.seriesId} | Season ID: {race.season_id || race.seasonId}
+                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
                         </Typography>
                     </CardContent>
                 </Card>
@@ -187,7 +187,7 @@ const RankRaces = () => {
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <FormControl sx={{ minWidth: 120 }}>
                     <InputLabel>Category</InputLabel>
-                    <Select value={raceKindFilter} onChange={handleRaceKindFilterChange}>
+                    <Select value={categoryFilter} onChange={handleCategoryFilterChange}>
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="oval">Oval</MenuItem>
                         <MenuItem value="road">Road</MenuItem>
@@ -199,7 +199,7 @@ const RankRaces = () => {
 
                 <FormControl sx={{ minWidth: 120 }}>
                     <InputLabel>License Level</InputLabel>
-                    <Select value={classFilter} onChange={handleClassFilterChange}>
+                    <Select value={licenseLevelFilter} onChange={handleLicenseLevelFilterChange}>
                         <MenuItem value="all">All</MenuItem>
                         <MenuItem value="Rookie">Rookie</MenuItem>
                         <MenuItem value="D">D</MenuItem>
