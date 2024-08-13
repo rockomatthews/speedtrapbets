@@ -40,6 +40,8 @@ const RankRaces = () => {
                 ? `https://speedtrapbets.onrender.com/api/refresh-races`
                 : `https://speedtrapbets.onrender.com/api/official-races?page=${pageNum}&pageSize=10`;
 
+            console.log(`Fetching races from URL: ${url}`); // Log the URL being fetched
+
             const response = await fetch(url, {
                 credentials: 'include',
                 headers: {
@@ -50,12 +52,15 @@ const RankRaces = () => {
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
+                console.error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`); // Log error details
                 throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
             }
             
             const data = await response.json();
-            
+            console.log('Fetched race data:', data); // Log the fetched data
+
             if (data.races && Array.isArray(data.races)) {
+                console.log('Fetched races array:', data.races); // Log the races array
                 if (pageNum === 1 || refresh) {
                     setRaces(data.races);
                 } else {
@@ -68,13 +73,14 @@ const RankRaces = () => {
                 setSnackbarMessage('Races updated successfully');
                 setSnackbarOpen(true);
             } else {
+                console.error('Received unexpected data structure from the server:', data); // Log unexpected data structure
                 throw new Error('Received unexpected data structure from the server');
             }
         } catch (error) {
             setError(`Failed to fetch races: ${error.message}`);
             setSnackbarMessage(`Error: ${error.message}`);
             setSnackbarOpen(true);
-            console.error('Error fetching races:', error);
+            console.error('Error fetching races:', error); // Log the error
         } finally {
             setIsLoadingRaces(false);
         }
@@ -100,26 +106,31 @@ const RankRaces = () => {
 
     // Handle changes to race kind filter (renamed to "Category")
     const handleRaceKindFilterChange = useCallback((event) => {
+        console.log(`Race kind filter changed to: ${event.target.value}`); // Log the selected race kind filter
         setRaceKindFilter(event.target.value);
     }, []);
 
     // Handle changes to class filter
     const handleClassFilterChange = useCallback((event) => {
+        console.log(`Class filter changed to: ${event.target.value}`); // Log the selected class filter
         setClassFilter(event.target.value);
     }, []);
 
     // Handle changes to state filter
     const handleStateFilterChange = useCallback((event) => {
+        console.log(`State filter changed to: ${event.target.value}`); // Log the selected state filter
         setStateFilter(event.target.value);
     }, []);
 
     // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
-        return races.filter(race => 
+        const filtered = races.filter(race => 
             (raceKindFilter === 'all' || race.kind === raceKindFilter) &&
             (classFilter === 'all' || race.licenseLevel === classFilter) &&
             (stateFilter === 'all' || race.state === stateFilter)
         );
+        console.log('Filtered races:', filtered); // Log the filtered races
+        return filtered;
     }, [races, raceKindFilter, classFilter, stateFilter]);
 
     // Handle closing of the snackbar
@@ -132,37 +143,42 @@ const RankRaces = () => {
 
     // Handle retrying the fetch in case of error
     const handleRetry = useCallback(() => {
+        console.log('Retrying fetch races...'); // Log retry attempt
         fetchRaces(1);
     }, [fetchRaces]);
 
     // Handle manual refresh of races
     const handleRefresh = useCallback(() => {
+        console.log('Manually refreshing races...'); // Log manual refresh attempt
         setPage(1);  // Reset the page to 1 when refreshing
         fetchRaces(1, true);
     }, [fetchRaces]);
 
     // Handle race data rendering with correct fields
-    const renderRace = (race, index) => (
-        <Grid item xs={12} key={index}>
-            <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
-                <CardContent>
-                    <Typography variant="h6" gutterBottom>{race.name}</Typography>
-                    <Divider sx={{ my: 1 }} />
-                    <Typography><strong>License Level:</strong> {race.licenseLevel}</Typography>
-                    <Typography><strong>Track:</strong> {race.trackName} {race.trackConfig && `(${race.trackConfig})`}</Typography>
-                    <Typography><strong>Cars:</strong> {race.carNames}</Typography>
-                    <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
-                    <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
-                    <Typography><strong>State:</strong> {race.state}</Typography>
-                    <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
-                    <Typography><strong>Category:</strong> {race.kind || 'Unknown'}</Typography>
-                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                        Series ID: {race.seriesId} | Season ID: {race.seasonId}
-                    </Typography>
-                </CardContent>
-            </Card>
-        </Grid>
-    );
+    const renderRace = (race, index) => {
+        console.log(`Rendering race at index ${index}:`, race); // Log the race being rendered
+        return (
+            <Grid item xs={12} key={index}>
+                <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom>{race.name}</Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography><strong>License Level:</strong> {race.licenseLevel || 'Unknown'}</Typography>
+                        <Typography><strong>Track:</strong> {race.trackName || 'Unknown'} {race.trackConfig && `(${race.trackConfig})`}</Typography>
+                        <Typography><strong>Cars:</strong> {race.carNames || 'Unknown'}</Typography>
+                        <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
+                        <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
+                        <Typography><strong>State:</strong> {race.state || 'Unknown'}</Typography>
+                        <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
+                        <Typography><strong>Category:</strong> {race.kind || 'Unknown'}</Typography>
+                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                        </Typography>
+                    </CardContent>
+                </Card>
+            </Grid>
+        );
+    };
 
     return (
         <Box>
