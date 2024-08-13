@@ -154,25 +154,57 @@ const RankRaces = () => {
         fetchRaces(1, true);
     }, [fetchRaces]);
 
-    // Handle race data rendering with correct fields
+    // Handle race data rendering with correct fields, combining data from race, carClass, track, and series
     const renderRace = (race, index) => {
         console.log(`Rendering race at index ${index}:`, race);
+
+        // Extract data from the race object
+        const seriesName = race.name || 'Unknown Series';
+        const carNames = race.carNames || 'Unknown Car';
+        const trackName = race.trackName || 'Unknown Track';
+        const trackConfig = race.trackConfig ? `(${race.trackConfig})` : '';
+        const licenseLevel = race.licenseLevel || 'Unknown';
+        const startTime = new Date(race.startTime).toLocaleString();
+        const duration = race.sessionMinutes || 'Unknown';
+        const state = race.state || 'Unknown';
+        const registeredDrivers = race.registeredDrivers || 'Unknown';
+        const maxDrivers = race.maxDrivers || 'Unknown';
+        const category = race.kind || 'Unknown';
+        const seriesId = race.seriesId || 'Unknown';
+        const seasonId = race.seasonId || 'Unknown';
+
+        // Log all the extracted data for debugging
+        console.log('Series Name:', seriesName);
+        console.log('License Level:', licenseLevel);
+        console.log('Track Name:', trackName);
+        console.log('Track Config:', trackConfig);
+        console.log('Cars:', carNames);
+        console.log('Start Time:', startTime);
+        console.log('Duration:', duration);
+        console.log('State:', state);
+        console.log('Registered Drivers:', registeredDrivers);
+        console.log('Max Drivers:', maxDrivers);
+        console.log('Category:', category);
+        console.log('Series ID:', seriesId);
+        console.log('Season ID:', seasonId);
+
+        // Render the race card with all the relevant data
         return (
             <Grid item xs={12} key={index}>
                 <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
                     <CardContent>
-                        <Typography variant="h6" gutterBottom>{race.name}</Typography>
+                        <Typography variant="h6" gutterBottom>{seriesName}</Typography>
                         <Divider sx={{ my: 1 }} />
-                        <Typography><strong>License Level:</strong> {race.licenseLevel || 'Unknown'}</Typography>
-                        <Typography><strong>Track:</strong> {race.trackName || 'Unknown'} {race.trackConfig && `(${race.trackConfig})`}</Typography>
-                        <Typography><strong>Cars:</strong> {race.name || 'Unknown'}</Typography>
-                        <Typography><strong>Start Time:</strong> {new Date(race.startTime).toLocaleString()}</Typography>
-                        <Typography><strong>Duration:</strong> {race.sessionMinutes || 'Unknown'} minutes</Typography>
-                        <Typography><strong>State:</strong> {race.state || 'Unknown'}</Typography>
-                        <Typography><strong>Drivers:</strong> {race.registeredDrivers} / {race.maxDrivers || 'Unknown'}</Typography>
-                        <Typography><strong>Category:</strong> {race.category || 'Unknown'}</Typography>
+                        <Typography><strong>License Level:</strong> {licenseLevel}</Typography>
+                        <Typography><strong>Track:</strong> {trackName} {trackConfig}</Typography>
+                        <Typography><strong>Cars:</strong> {carNames}</Typography>
+                        <Typography><strong>Start Time:</strong> {startTime}</Typography>
+                        <Typography><strong>Duration:</strong> {duration} minutes</Typography>
+                        <Typography><strong>State:</strong> {state}</Typography>
+                        <Typography><strong>Drivers:</strong> {registeredDrivers} / {maxDrivers}</Typography>
+                        <Typography><strong>Category:</strong> {category}</Typography>
                         <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                            Series ID: {race.seriesId} | Season ID: {race.seasonId}
+                            Series ID: {seriesId} | Season ID: {seasonId}
                         </Typography>
                     </CardContent>
                 </Card>
