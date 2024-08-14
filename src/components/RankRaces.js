@@ -91,7 +91,7 @@ const RankRaces = () => {
         fetchRaces(1);
     }, [fetchRaces]);
 
-    // Throttled function to load more races when the user scrolls or interacts
+    // Function to load more races when the user scrolls or interacts
     const loadMore = useCallback(() => {
         if (!isLoadingRaces && hasMore) {
             setPage(prevPage => prevPage + 1);
@@ -124,10 +124,10 @@ const RankRaces = () => {
 
     // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
-        const filtered = races.filter(race => 
-            (categoryFilter === 'all' || race.kind === categoryFilter) &&
-            (licenseLevelFilter === 'all' || race.licenseLevel === licenseLevelFilter) &&
-            (stateFilter === 'all' || race.state === stateFilter)
+        const filtered = races.filter(raceData => 
+            (categoryFilter === 'all' || raceData.kind === categoryFilter) &&
+            (licenseLevelFilter === 'all' || raceData.licenseLevel === licenseLevelFilter) &&
+            (stateFilter === 'all' || raceData.state === stateFilter)
         );
         console.log('Filtered races:', filtered);
         return filtered;
@@ -155,25 +155,25 @@ const RankRaces = () => {
     }, [fetchRaces]);
 
     // Handle race data rendering with correct fields, combining data from race, carClass, track, and series
-   const renderRace = (raceData, index) => {
+    const renderRace = (raceData, index) => {
         console.log(`Rendering race at index ${index}:`, raceData);
 
         // Extract data from the raceData object using the correct field names and objects
-        const seriesName = raceData.series.series_name || raceData.race.series_name || 'Unknown Series';
-        const description = raceData.series.series_short_name || 'Unknown';
-        const licenseLevel = raceData.licenseLevel;
-        const startTime = new Date(raceData.race.start_time).toLocaleString();
-        const state = raceData.state;
-        const duration = raceData.race.duration || 'Unknown';
-        const registeredDrivers = raceData.race.entry_count || 'Unknown';
-        const maxDrivers = raceData.race.max_entry_count || 0;
-        const seriesId = raceData.race.series_id;
-        const seasonId = raceData.race.season_id;
-        const categoryId = raceData.race.category_id;
-        const category = raceData.category;
-        const trackName = raceData.track.track_name || 'Unknown Track';
-        const trackConfig = raceData.track.config_name ? `(${raceData.track.config_name})` : '';
-        const carNames = raceData.carNames || 'Unknown Car';
+        const seriesName = raceData?.series?.series_name || raceData?.race?.series_name || 'Unknown Series';
+        const description = raceData?.series?.series_short_name || 'Unknown';
+        const licenseLevel = raceData?.licenseLevel || 'Unknown';
+        const startTime = raceData?.race?.start_time ? new Date(raceData.race.start_time).toLocaleString() : 'Unknown';
+        const state = raceData?.state || 'Unknown';
+        const duration = raceData?.race?.duration || 'Unknown';
+        const registeredDrivers = raceData?.race?.entry_count || 'Unknown';
+        const maxDrivers = raceData?.race?.max_entry_count || 0;
+        const seriesId = raceData?.race?.series_id || 'Unknown';
+        const seasonId = raceData?.race?.season_id || 'Unknown';
+        const categoryId = raceData?.race?.category_id || 'Unknown';
+        const category = raceData?.category || 'Unknown';
+        const trackName = raceData?.track?.track_name || 'Unknown Track';
+        const trackConfig = raceData?.track?.config_name ? `(${raceData.track.config_name})` : '';
+        const carNames = raceData?.carNames || 'Unknown Car';
 
         // Log all the extracted data for debugging
         console.log('Series Name:', seriesName);
@@ -291,7 +291,7 @@ const RankRaces = () => {
                         Showing {filteredRaces.length} of {totalCount} total races
                     </Typography>
                     <Grid container spacing={2}>
-                        {filteredRaces.map(renderRace)}
+                        {filteredRaces.map((raceData, index) => renderRace(raceData, index))}
                     </Grid>
                     {hasMore && (
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
@@ -311,7 +311,7 @@ const RankRaces = () => {
             )}
 
             {lastUpdated && (
-                <Typography variant="caption" sx={{ mt: 2, display:"block" }}>
+                <Typography variant="caption" sx={{ mt: 2, display: "block" }}>
                     Last updated: {lastUpdated.toLocaleString()}
                 </Typography>
             )}
