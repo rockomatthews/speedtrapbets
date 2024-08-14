@@ -225,8 +225,8 @@ class IracingApi {
                     }
                 }
 
-                console.log(`Processed race: ${series.series_name || race.series_name || 'Unknown Series'}`);
-                return {
+                // Package the race data
+                const raceData = {
                     name: series.series_name || race.series_name || 'Unknown Series',
                     description: series.series_short_name || 'Unknown',
                     licenseLevel: this.mapLicenseLevelToClass(season ? season.license_group : undefined),
@@ -243,6 +243,11 @@ class IracingApi {
                     trackConfig: track.config_name,
                     carNames: carNames
                 };
+
+                // Log the packaged race data for debugging
+                console.log(`\nPackaged Race Data for Debugging:\nName: ${raceData.name}\nLicense Level: ${raceData.licenseLevel}\nTrack: ${raceData.trackName}\nCars: ${raceData.carNames}\nStart Time: ${new Date(raceData.startTime).toLocaleString()}\nDuration: ${raceData.sessionMinutes || 'Unknown'} minutes\nState: ${raceData.state}\nDrivers: ${raceData.registeredDrivers} / ${raceData.maxDrivers}\nCategory: ${raceData.kind}\nSeries ID: ${raceData.seriesId} | Season ID: ${raceData.seasonId}`);
+
+                return raceData;
             }));
     
             const filteredRaces = relevantRaces.filter(race => race !== null);
