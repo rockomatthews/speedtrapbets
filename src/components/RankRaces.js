@@ -155,26 +155,29 @@ const RankRaces = () => {
     }, [fetchRaces]);
 
     // Handle race data rendering with correct fields, combining data from race, carClass, track, and series
-    const renderRace = (race, index) => {
-        console.log(`Rendering race at index ${index}:`, race);
+   const renderRace = (raceData, index) => {
+        console.log(`Rendering race at index ${index}:`, raceData);
 
-        // Extract data from the race object using the correct prefixes
-        const seriesName = race.name || 'Unknown Series';
-        const carNames = race.carNames || 'Unknown Car';
-        const trackName = race.trackName || 'Unknown Track';
-        const trackConfig = race.trackConfig ? `(${race.trackConfig})` : '';
-        const licenseLevel = race.licenseLevel || 'Unknown';
-        const startTime = new Date(race.startTime).toLocaleString();
-        const duration = race.sessionMinutes || 'Unknown';
-        const state = race.state || 'Unknown';
-        const registeredDrivers = race.registeredDrivers || 'Unknown';
-        const maxDrivers = race.maxDrivers || 'Unknown';
-        const category = race.kind || 'Unknown';
-        const seriesId = race.seriesId || 'Unknown';
-        const seasonId = race.seasonId || 'Unknown';
+        // Extract data from the raceData object using the correct field names and objects
+        const seriesName = raceData.series.series_name || raceData.race.series_name || 'Unknown Series';
+        const description = raceData.series.series_short_name || 'Unknown';
+        const licenseLevel = raceData.licenseLevel;
+        const startTime = new Date(raceData.race.start_time).toLocaleString();
+        const state = raceData.state;
+        const duration = raceData.race.duration || 'Unknown';
+        const registeredDrivers = raceData.race.entry_count || 'Unknown';
+        const maxDrivers = raceData.race.max_entry_count || 0;
+        const seriesId = raceData.race.series_id;
+        const seasonId = raceData.race.season_id;
+        const categoryId = raceData.race.category_id;
+        const category = raceData.category;
+        const trackName = raceData.track.track_name || 'Unknown Track';
+        const trackConfig = raceData.track.config_name ? `(${raceData.track.config_name})` : '';
+        const carNames = raceData.carNames || 'Unknown Car';
 
         // Log all the extracted data for debugging
         console.log('Series Name:', seriesName);
+        console.log('Description:', description);
         console.log('License Level:', licenseLevel);
         console.log('Track Name:', trackName);
         console.log('Track Config:', trackConfig);
@@ -185,6 +188,7 @@ const RankRaces = () => {
         console.log('Registered Drivers:', registeredDrivers);
         console.log('Max Drivers:', maxDrivers);
         console.log('Category:', category);
+        console.log('Category ID:', categoryId);
         console.log('Series ID:', seriesId);
         console.log('Season ID:', seasonId);
 
@@ -194,6 +198,7 @@ const RankRaces = () => {
                 <Card sx={{ border: '2px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
                     <CardContent>
                         <Typography variant="h6" gutterBottom>{seriesName}</Typography>
+                        <Typography variant="subtitle2" gutterBottom>{description}</Typography>
                         <Divider sx={{ my: 1 }} />
                         <Typography><strong>License Level:</strong> {licenseLevel}</Typography>
                         <Typography><strong>Track:</strong> {trackName} {trackConfig}</Typography>
@@ -202,7 +207,7 @@ const RankRaces = () => {
                         <Typography><strong>Duration:</strong> {duration} minutes</Typography>
                         <Typography><strong>State:</strong> {state}</Typography>
                         <Typography><strong>Drivers:</strong> {registeredDrivers} / {maxDrivers}</Typography>
-                        <Typography><strong>Category:</strong> {category}</Typography>
+                        <Typography><strong>Category:</strong> {category} (ID: {categoryId})</Typography>
                         <Typography variant="caption" display="block" sx={{ mt: 1 }}>
                             Series ID: {seriesId} | Season ID: {seasonId}
                         </Typography>
@@ -233,7 +238,7 @@ const RankRaces = () => {
                     <InputLabel>License Level</InputLabel>
                     <Select value={licenseLevelFilter} onChange={handleLicenseLevelFilterChange}>
                         <MenuItem value="all">All</MenuItem>
-                        <MenuItem value="Rookie">Rookie</MenuItem>
+                        <MenuItem value="R">R</MenuItem>
                         <MenuItem value="D">D</MenuItem>
                         <MenuItem value="C">C</MenuItem>
                         <MenuItem value="B">B</MenuItem>
