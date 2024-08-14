@@ -125,7 +125,7 @@ const RankRaces = () => {
     // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
         const filtered = races.filter(race => 
-            (categoryFilter === 'all' || race.category === categoryFilter) &&  // Using 'category' instead of 'kind'
+            (categoryFilter === 'all' || race.kind === categoryFilter) &&  // Updated to correctly use 'kind'
             (licenseLevelFilter === 'all' || race.licenseLevel === licenseLevelFilter) &&
             (stateFilter === 'all' || race.state === stateFilter)
         );
@@ -169,7 +169,7 @@ const RankRaces = () => {
         const state = race.state || 'Unknown';
         const registeredDrivers = race.registeredDrivers || 'Unknown';
         const maxDrivers = race.maxDrivers || 'Unknown';
-        const category = race.category || 'Unknown';  // Updated from 'kind' to 'category'
+        const category = race.kind || 'Unknown';  // Updated from 'category' to 'kind' as per the backend data
         const seriesId = race.seriesId || 'Unknown';
         const seasonId = race.seasonId || 'Unknown';
 
@@ -322,3 +322,4 @@ const RankRaces = () => {
 };
 
 export default React.memo(RankRaces);
+

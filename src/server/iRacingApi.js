@@ -303,7 +303,7 @@ class IracingApi {
             2: 'road',
             3: 'dirt_oval',
             4: 'dirt_road',
-            5: 'sports_car'
+            5: 'sports_car' // Ensure this is mapped correctly to the category
         };
         return categoryMap[categoryId] || 'unknown';
     }
