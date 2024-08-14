@@ -125,7 +125,7 @@ const RankRaces = () => {
     // Filter races based on selected filters
     const filteredRaces = useMemo(() => {
         const filtered = races.filter(race => 
-            (categoryFilter === 'all' || race.kind === categoryFilter) &&
+            (categoryFilter === 'all' || race.category === categoryFilter) &&  // Using 'category' instead of 'kind'
             (licenseLevelFilter === 'all' || race.licenseLevel === licenseLevelFilter) &&
             (stateFilter === 'all' || race.state === stateFilter)
         );
@@ -169,7 +169,7 @@ const RankRaces = () => {
         const state = race.state || 'Unknown';
         const registeredDrivers = race.registeredDrivers || 'Unknown';
         const maxDrivers = race.maxDrivers || 'Unknown';
-        const category = race.kind || 'Unknown';
+        const category = race.category || 'Unknown';  // Updated from 'kind' to 'category'
         const seriesId = race.seriesId || 'Unknown';
         const seasonId = race.seasonId || 'Unknown';
 
