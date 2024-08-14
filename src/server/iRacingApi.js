@@ -150,6 +150,7 @@ class IracingApi {
     // Method to fetch official races and their details
     async getOfficialRaces(page = 1, pageSize = 10) {
         try {
+            console.log('getOfficialRaces method called'); // Confirm method call
             console.log(`Fetching official races (Page: ${page}, PageSize: ${pageSize})`);
             
             const currentTime = new Date().toISOString();
@@ -173,6 +174,8 @@ class IracingApi {
                 raceGuideData = raceGuideData.data;
             }
     
+            console.log('Race guide data fetched:', raceGuideData);
+    
             if (!Array.isArray(raceGuideData.sessions)) {
                 console.error('Invalid race guide data structure:', raceGuideData);
                 throw new Error('Invalid race guide data structure');
@@ -190,6 +193,7 @@ class IracingApi {
     
             console.log('Fetching car class data...');
             const carClassData = await this.getCarClasses();
+            console.log('Car class data fetched:', carClassData);
     
             console.log('Fetching track data...');
             let trackData = await this.retryApiCall(() => this.getData('track/get'));
@@ -198,6 +202,8 @@ class IracingApi {
                 const trackResponse = await this.retryApiCall(() => axios.get(trackData.link));
                 trackData = trackResponse.data;
             }
+    
+            console.log('Track data fetched:', trackData);
     
             if (!Array.isArray(trackData)) {
                 console.error('Invalid track data structure:', trackData);
@@ -403,3 +409,4 @@ class IracingApi {
 }
 
 module.exports = IracingApi;
+
