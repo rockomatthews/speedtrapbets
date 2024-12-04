@@ -62,7 +62,7 @@ function logError(error, req = null) {
         console.log('Retrying authentication in 60 seconds...');
         setTimeout(authenticateIRacing, 60000);
     }
-})();
+}());
 
 const checkAuth = async (req, res, next) => {
     if (!isAuthenticated) {
